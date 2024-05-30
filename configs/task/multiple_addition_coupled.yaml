@@ -1,0 +1,35 @@
+symbol: +
+commutative: False
+reverse_output: True
+eos: True
+bos_to_eos: True
+padding: True
+pad_token: '0'
+max_position: 12
+
+train:
+  dataset_cls: MultipleAdditionDatasetWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 5
+  n_data: 1000000
+  randomize: True
+  min_n_operands: 3
+  max_n_operands: 3
+
+val:
+  dataset_cls: MultipleAdditionDatasetWithCoupledPositions
+  min_n_digits: 5
+  max_n_digits: 5
+  n_data: 10000
+  randomize: False
+  min_n_operands: 3
+  max_n_operands: 3
+
+val_long:
+  dataset_cls: MultipleAdditionDatasetWithCoupledPositions
+  min_n_digits: 10
+  max_n_digits: 10
+  n_data: 10000
+  randomize: False
+  min_n_operands: 3
+  max_n_operands: 3

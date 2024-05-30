@@ -1,0 +1,30 @@
+symbol: '*'
+commutative: False
+reverse_output: True
+eos: True
+bos_to_eos: True
+M: 1
+padding: True
+pad_token: '0'
+max_position: 12
+
+train:
+  dataset_cls: NxMMultiplicationDatasetWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 5
+  n_data: 1000000
+  randomize: True
+
+val:
+  dataset_cls: NxMMultiplicationDatasetWithCoupledPositions
+  min_n_digits: 5
+  max_n_digits: 5
+  n_data: 10000
+  randomize: False
+
+val_long:
+  dataset_cls: NxMMultiplicationDatasetWithCoupledPositions
+  min_n_digits: 10
+  max_n_digits: 10
+  n_data: 10000
+  randomize: False

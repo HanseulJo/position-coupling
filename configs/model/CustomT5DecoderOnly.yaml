@@ -1,0 +1,48 @@
+model_name: CustomT5DecoderOnly
+
+position_encoding_type: abs_learned 
+# Example of position_encoding_type:
+# "t5_relative_bias"
+# "transformer_xl_relative_encoding"
+# "rotary"
+# "rotary_rerun"
+# "new_rotary"
+# "abs_learned"
+# "abs_sinusoid"
+# "alibi"
+# "alibi_learned"
+# "none"
+
+## Dimensions ##
+d_model: 512
+d_kv: 64
+d_ff: 3072
+num_layers: 6
+num_decoder_layers: null
+num_heads: 8
+relative_attention_num_buckets: 32   # only for t5_relative_bias
+relative_attention_max_distance: 128  # only for t5_relative_bias
+n_positions: 1024
+
+## Architecture Details ##
+dropout_rate: 0.0
+classifier_dropout: 0.0
+normalization_layer: layernorm  # layernorm, t5layernorm, rmsnorm
+layer_norm_position: post  # pre, post, pre_post
+layer_norm_epsilon: 0.000001
+initializer_factor: 1.0
+feed_forward_proj: gated-relu  # relu, gelu, gated-relu, gated-gelu
+is_encoder_decoder: False
+use_cache: True
+
+## Tempered Softmax ##
+tempered_softmax: False
+tempered_softmax_std: 0.02
+
+## Common config ##
+do_sample: False
+num_beams: 1
+# early_stopping: False
+
+## Save model or not ##
+save: False

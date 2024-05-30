@@ -1,0 +1,23 @@
+symbol: parity
+reversed_scratchpad: False
+eos: True
+bos_to_eos: True
+vocab: 0 1 =
+
+train:
+  dataset_cls: ParityDatasetWithScratchpad
+  min_n_digits: 1
+  max_n_digits: 10
+  n_data: 100000
+
+val:
+  dataset_cls: ParityDatasetWithScratchpad
+  min_n_digits: 10
+  max_n_digits: 10
+  n_data: 10000
+
+val_long:
+  dataset_cls: ParityDatasetWithScratchpad
+  min_n_digits: 20
+  max_n_digits: 20
+  n_data: 10000

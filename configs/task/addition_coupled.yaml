@@ -1,0 +1,48 @@
+symbol: +
+commutative: False
+reverse_output: True
+eos: True
+bos_to_eos: True
+padding: True
+pad_token: '0'
+max_position: 132
+
+train:
+  dataset_cls: AdditionDatasetWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 40
+  n_data: 100000
+  randomize: True
+  hard_carry: False
+
+val:
+  dataset_cls: AdditionDatasetWithCoupledPositions
+  min_n_digits: 40
+  max_n_digits: 40
+  n_data: 10000
+  randomize: False
+  hard_carry: False
+
+# val_hard:
+#   dataset_cls: AdditionDatasetWithCoupledPositions
+#   min_n_digits: 40
+#   max_n_digits: 40
+#   n_data: 10000
+#   randomize: False
+#   hard_carry: True
+
+val_long:
+  dataset_cls: AdditionDatasetWithCoupledPositions
+  min_n_digits: 100
+  max_n_digits: 100
+  n_data: 10000
+  randomize: False
+  hard_carry: False
+
+# val_long_hard:
+#   dataset_cls: AdditionDatasetWithCoupledPositions
+#   min_n_digits: 100
+#   max_n_digits: 100
+#   n_data: 10000
+#   randomize: False
+#   hard_carry: True

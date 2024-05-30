@@ -1,0 +1,31 @@
+symbol: +
+commutative: False
+reverse_output: True
+eos: True
+bos_to_eos: True
+padding: True
+pad_token: '0'
+
+train:
+  dataset_cls: MultipleAdditionDataset
+  min_n_digits: 1
+  max_n_digits: 5
+  n_data: 100000
+  min_n_operands: 3
+  max_n_operands: 3
+
+val:
+  dataset_cls: MultipleAdditionDataset
+  min_n_digits: 5
+  max_n_digits: 5
+  n_data: 10000
+  min_n_operands: 3
+  max_n_operands: 3
+
+val_long:
+  dataset_cls: MultipleAdditionDataset
+  min_n_digits: 10
+  max_n_digits: 10
+  n_data: 10000
+  min_n_operands: 3
+  max_n_operands: 3

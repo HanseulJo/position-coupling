@@ -1,0 +1,32 @@
+model_name: Bart
+
+## Overall config ##
+activation_function: relu
+d_model: 256
+init_std: 0.02
+scale_embedding: False
+is_encoder_decoder: True
+use_cache: True
+
+## Encoder Architecture ##
+encoder_layers: 6
+encoder_ffn_dim: 1024
+encoder_attention_head: 8
+
+## Decoder Architecture ##
+decoder_layers: 6
+decoder_ffn_dim: 1024
+decoder_attention_heads: 8
+
+## Dropout ##
+encoder_layerdrop: 0.0
+decoder_layerdrop: 0.0
+dropout: 0.1
+attention_dropout: 0.0
+activation_dropout: 0.0
+classifier_dropout: 0.0
+
+## Common config ##
+do_sample: False
+num_beams: 1
+# early_stopping: False

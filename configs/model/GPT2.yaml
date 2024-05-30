@@ -1,0 +1,31 @@
+model_name: GPT2
+
+# attribute_map = {
+#     "hidden_size": "n_embd",
+#     "max_position_embeddings": "n_positions",
+#     "num_attention_heads": "n_head",
+#     "num_hidden_layers": "n_layer",
+# }
+
+n_positions: 1024
+n_embd: 768
+n_layer: 12
+n_head: 12
+n_inner: null
+activation_function: 'gelu_new'
+resid_pdrop: 0.
+embd_pdrop: 0.
+attn_pdrop: 0.
+layer_norm_epsilon: 0.00001
+initializer_range: 0.02
+summary_type: 'cls_index'
+summary_use_proj: True
+summary_activation: null
+summary_proj_to_labels: True
+summary_first_dropout: 0.1
+scale_attn_weights: True
+use_cache: True
+scale_attn_by_inverse_layer_idx: False
+reorder_and_upcast_attn: False
+do_sample: False
+num_beams: 1

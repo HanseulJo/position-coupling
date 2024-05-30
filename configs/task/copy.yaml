@@ -1,0 +1,22 @@
+symbol: copy
+reverse_output: False
+eos: True
+bos_to_eos: True
+
+train:
+  dataset_cls: CopyDataset
+  min_n_digits: 1
+  max_n_digits: 10
+  n_data: 100000
+
+val:
+  dataset_cls: CopyDataset
+  min_n_digits: 10
+  max_n_digits: 10
+  n_data: 10000
+
+val_long:
+  dataset_cls: CopyDataset
+  min_n_digits: 20
+  max_n_digits: 20
+  n_data: 10000

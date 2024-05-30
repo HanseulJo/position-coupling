@@ -1,0 +1,14 @@
+project_name: 'Position Coupling for Length Generalization'
+entity:
+group_name: 'test'
+exp_name: 'test'
+device: cuda
+seed_data: 0
+seed: 0
+use_wandb: False
+
+defaults:
+- _self_
+- model: CustomT5DecoderOnly
+- task: addition_coupled
+- training: default

@@ -1,0 +1,26 @@
+symbol: copy
+reverse_output: False
+eos: True
+bos_to_eos: True
+max_position: 21
+
+train:
+  dataset_cls: CopyDatasetWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 10
+  n_data: 100000
+  randomize: True
+
+val:
+  dataset_cls: CopyDatasetWithCoupledPositions
+  min_n_digits: 10
+  max_n_digits: 10
+  n_data: 10000
+  randomize: False
+
+val_long:
+  dataset_cls: CopyDatasetWithCoupledPositions
+  min_n_digits: 20
+  max_n_digits: 20
+  n_data: 10000
+  randomize: False

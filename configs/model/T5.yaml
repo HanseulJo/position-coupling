@@ -1,0 +1,25 @@
+model_name: T5
+
+## Dimensions ##
+d_model: 768 #768 #256
+d_kv: 64 #64 #32
+d_ff: 3072 #3072 #1024
+num_layers: 12 #12 #6
+num_decoder_layers: null
+num_heads: 12 #12 #8
+relative_attention_num_buckets: 32 
+relative_attention_max_distance: 128
+
+## Architecture Details ##
+dropout_rate: 0.1
+classifier_dropout: 0.0
+layer_norm_epsilon: 0.000001
+initializer_factor: 1.0
+feed_forward_proj: relu
+is_encoder_decoder: True
+use_cache: True
+
+## Common config ##
+do_sample: False
+num_beams: 1
+# early_stopping: False
