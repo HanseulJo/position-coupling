@@ -15,18 +15,19 @@ bs=1000
 
 
 #########
-n_train=5
-n_test=10
-maxpos=17
-n_layers=1
-n_heads=4
-norm_type=rmsnorm
-norm_pos=pre_post
-act=gated-gelu
-lr=0.0001
-wd=0
-d_kv=$((512/n_heads))
-bs=1000
+## For Printing Attention Matrices
+# n_train=5
+# n_test=10
+# maxpos=17
+# n_layers=1
+# n_heads=2
+# norm_type=rmsnorm
+# norm_pos=pre_post
+# act=gated-gelu
+# lr=0.0001
+# wd=0
+# d_kv=$((512/n_heads))
+# bs=1000
 ###########
 
 
