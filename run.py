@@ -24,7 +24,7 @@ from src.data import build_dataset, build_loader
 from src.model import build_model_from_scratch, DECODER_BASED
 from src.training import get_custom_cosine_schedule_with_warmup, get_custom_linear_schedule_with_warmup, set_seed
 from src.evaluate import get_tokenwise_accuracy, get_instancewise_accuracy
-from src.common import print_example
+from src.common import print_example, print_2D
 
 
 def run(args):
@@ -96,7 +96,10 @@ def run(args):
 
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
-    model_summary = torchinfo.summary(model, (100,), batch_dim=0, dtypes=[torch.long], depth=5)
+    if not cfg.task.train.dataset_cls.startswith("MineSweeper"):
+        model_summary = torchinfo.summary(model, (100,), batch_dim=0, dtypes=[torch.long], depth=5)
+    else:
+        model_summary = torchinfo.summary(model, depth=5)
     dict_cfg['total_params'] = model_summary.total_params
     dict_cfg['trainable_params'] = model_summary.trainable_params
 
@@ -200,16 +203,21 @@ def run(args):
                         logits = model_output.logits
                         pred = torch.argmax(logits, dim=-1)
                         id_0 = tokenizer.token_to_id('0')
-                        print("Input     :", model_inputs['input_ids'][0].cpu().numpy() - id_0)
-                        if 'position_ids' in model_inputs:
-                            print("Position  :", model_inputs['position_ids'][0].cpu().numpy())
-                        if model_name in DECODER_BASED:
-                            lab = model_inputs['labels'][0, 1:]
-                            print("Prediction:", pred[0, :-1][lab != -100].cpu().numpy() - id_0)
-                        else:
-                            lab = model_inputs['labels'][0]
-                            print("Prediction:", pred[0][lab != -100].cpu().numpy() - id_0)
-                        print("Label     :", lab[lab != -100].cpu().numpy() - id_0) 
+                        d_positions = getattr(cfg.model, 'd_positions', None)
+                        if d_positions is None:
+                            print("Input     :", model_inputs['input_ids'][0].cpu().numpy() - id_0)
+                            if 'position_ids' in model_inputs:
+                                print("Position  :", model_inputs['position_ids'][0].cpu().numpy())
+                            if model_name in DECODER_BASED:
+                                lab = model_inputs['labels'][0, 1:]
+                                print("Prediction:", pred[0, :-1][lab != -100].cpu().numpy() - id_0)
+                            else:
+                                lab = model_inputs['labels'][0]
+                                print("Prediction:", pred[0][lab != -100].cpu().numpy() - id_0)
+                            print("Label     :", lab[lab != -100].cpu().numpy() - id_0) 
+                        elif d_positions == 2: # e.g. Minesweeper with coupling
+                            assert model_name in DECODER_BASED
+                            print_2D(model_inputs, pred, id_0)
                     if epoch % calc_acc_every_epochs == 0 or epoch == n_epochs:
                         logits = model_output.logits
                         pred = torch.argmax(logits, dim=-1)
@@ -230,8 +238,9 @@ def run(args):
                 instancewise_accuracy_avg = instancewise_correct_sum.item()/len(dataset[phase])
                 tokenwise_accuracies[phase].append(tokenwise_accuracy_avg)
                 instancewise_accuracies[phase].append(instancewise_accuracy_avg)
-                _, _, _, example = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=False)
-                print(example)
+                if not cfg.task.train.dataset_cls.startswith("MineSweeper"):
+                    _, _, _, example = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=False)
+                    print(example)
             # W&B
             if use_wandb:
                 log_data = {'loss': loss_avg}

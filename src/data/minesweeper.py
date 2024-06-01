@@ -1,5 +1,6 @@
 import numpy as np
 from src.data.common import ArithmeticDataset
+from tqdm import trange
 
 
 class MineSweeperGeneratorDataset(ArithmeticDataset):
@@ -19,7 +20,7 @@ class MineSweeperGeneratorDataset(ArithmeticDataset):
         self.widths = []
         self.heights = []
 
-        for i in range(n_data):
+        for i in trange(n_data):
             # Randomly sample the size of the board
             n_width = np.random.randint(min_n_len, max_n_len+1)
             n_height = np.random.randint(min_n_len, max_n_len+1)
@@ -28,14 +29,14 @@ class MineSweeperGeneratorDataset(ArithmeticDataset):
             mine_ratio = np.clip(np.random.uniform(min_mine_ratio, max_mine_ratio), 0, 1)
 
             # Choose the positions of mines as 1, otherwise 0
-            random_board = np.random.randn(n_height, n_width)
+            random_board = np.random.rand(n_height, n_width)
             one_hot_board = np.where(random_board < mine_ratio, 1, 0)  # 1 == mine, 0 == no mine
 
             # input board = "mine -> 'M', no mine -> 'E'"
             input_board = np.where(one_hot_board==1, 'M', 'E')
 
             # Making label board (1): start from a board of size ( (n_height+2) x (n_width+2) )
-            label_board = np.zeros(n_height+2, n_width+2)
+            label_board = np.zeros((n_height+2, n_width+2), dtype=int)
 
             # Making label board (2): Fill in!
             label_board[ :n_height  , :n_width  ] += one_hot_board  # upper left
@@ -49,6 +50,7 @@ class MineSweeperGeneratorDataset(ArithmeticDataset):
 
             # Making label board (3): take the middle
             label_board = label_board[1:n_height+1, 1:n_width+1]
+            label_board = label_board.astype(str)
             label_board[one_hot_board==1] = 'M'  # positions of mines
                         
             self.inputs.append(''.join(map(str,sum(input_board.tolist(), []))))
@@ -63,17 +65,18 @@ class MineSweeperGeneratorDatasetWithCoupledPositions(MineSweeperGeneratorDatase
             n_data, 
             min_n_len, 
             max_n_len,
+            min_mine_ratio,
             max_mine_ratio,
             reverse_output=False,
             randomize=False,
             max_position=22,
-            vanilla=True,
+            vanilla=False,
             **kwargs
         ):
         self.randomize = randomize
         self.max_position = max_position
         self.vanilla=vanilla
-        super().__init__(n_data, min_n_len, max_n_len, max_mine_ratio,
+        super().__init__(n_data, min_n_len, max_n_len, min_mine_ratio, max_mine_ratio,
             reverse_output, **kwargs)
     
     def __getitem__(self, index):
@@ -99,4 +102,6 @@ class MineSweeperGeneratorDatasetWithCoupledPositions(MineSweeperGeneratorDatase
 
         inputs = " ".join(inputs)
         labels = " ".join(labels)
-        return inputs, labels, input_positions_1, label_positions_1, input_positions_2, label_positions_2
+        input_positions = [input_positions_1, input_positions_2]
+        label_positions = [label_positions_1, label_positions_2]
+        return inputs, labels, input_positions, label_positions

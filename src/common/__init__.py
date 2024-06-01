@@ -1,4 +1,4 @@
-from .training_utils import print_example, print_training_update
+from .training_utils import print_example, print_training_update, print_2D
 
 from datetime import datetime
 

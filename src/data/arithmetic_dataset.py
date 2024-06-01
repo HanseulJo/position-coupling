@@ -14,6 +14,7 @@ from src.data.addition import *
 from src.data.multiplication import *
 from src.data.copy import *
 from src.data.parity import *
+from src.data.minesweeper import *
 
 
 ## Build Dataset (train / val / val_long)

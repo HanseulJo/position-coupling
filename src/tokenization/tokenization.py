@@ -126,13 +126,20 @@ def tokenize_for_decoder(
 
     # position_ids
     if input_positions is not None and label_positions is not None:
-        total_length = out['input_ids'].shape[1]
-        concat = [
-            [0] + inp_pos + lab_pos 
-            for inp_pos, lab_pos in zip(input_positions, label_positions)
-        ]
-        concat = [pos + [0] * (total_length - len(pos)) for pos in concat]
-        out['position_ids'] = np.array(concat)
+        batchsize, total_length = out['input_ids'].shape
+        if np.array(input_positions[0]).ndim == 1:
+            position_ids = np.zeros((batchsize, total_length), dtype=int)
+            for b, (inp_pos, lab_pos) in enumerate(zip(input_positions, label_positions)):
+                pos = inp_pos + lab_pos
+                position_ids[b, 1:1+len(pos)] = np.array(pos, dtype=int)
+        elif np.array(input_positions[0]).ndim == 2:  # multi dimensional position ids
+            position_id_dim = len(input_positions[0])
+            position_ids = np.zeros((position_id_dim, batchsize, total_length), dtype=int)
+            for b, (inp_positions, lab_positions) in enumerate(zip(input_positions, label_positions)):
+                for d, (inp_pos, lab_pos) in enumerate(zip(inp_positions, lab_positions)):
+                    pos = inp_pos + lab_pos
+                    position_ids[d, b, 1:1+len(pos)] = np.array(pos, dtype=int)
+        out['position_ids'] = position_ids
 
     if arr_type == 'torch':
         # torch Tensor

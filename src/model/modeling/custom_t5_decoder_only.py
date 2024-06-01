@@ -715,23 +715,32 @@ class CustomT5Stack(T5Stack):
         self.final_layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
 
+        self.position_dim = getattr(config, 'd_positions', None)
         if self.position_encoding_type == POSITION_ENCODING_ABS_LEARNED:
-            self.wpe = nn.Embedding(getattr(config, 'n_positions', 2048), config.d_model)
-            parent_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-            learned_embed_file = parent_dir / "gpt_neo_125m_pos_embed.npy"
-            if learned_embed_file.exists():
-                logger.info(
-                    "Loading position embedding from {}".format(learned_embed_file)
-                )
-                import numpy as np
+            maxpos = getattr(config, 'n_positions', 2048)
+            if self.position_dim is None:
+                self.wpe = nn.Embedding(maxpos, config.d_model)
+                parent_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+                learned_embed_file = parent_dir / "gpt_neo_125m_pos_embed.npy"
+                if learned_embed_file.exists():
+                    logger.info(
+                        "Loading position embedding from {}".format(learned_embed_file)
+                    )
+                    import numpy as np
 
-                weight = np.load(str(learned_embed_file))
-                self.wpe.weight.data.copy_(torch.from_numpy(weight))
-                self.wpe.weight.requires_grad = False
-            else:
-                self.wpe.weight.data.normal_(
-                    mean=0.0, std=config.initializer_factor * 1.0
-                )
+                    weight = np.load(str(learned_embed_file))
+                    self.wpe.weight.data.copy_(torch.from_numpy(weight))
+                    self.wpe.weight.requires_grad = False
+                else:
+                    self.wpe.weight.data.normal_(
+                        mean=0.0, std=config.initializer_factor * 1.0
+                    )
+            elif self.position_dim >= 1:  # Support for multi-dimensional position ids
+                if getattr(config, 'share_pe', False):
+                    self.wpe = nn.ModuleList([nn.Embedding(maxpos, config.d_model)] * self.position_dim)
+                else:
+                    self.wpe = nn.ModuleList([nn.Embedding(maxpos, config.d_model) for _ in range(self.position_dim)])
+            
 
         if self.position_encoding_type == POSITION_ENCODING_ABS_SINUSOID:
             self.wpe = FixedAbsolutePositionalEmbedding(config.d_model)
@@ -877,9 +886,11 @@ class CustomT5Stack(T5Stack):
         if self.position_encoding_type in [
             POSITION_ENCODING_ABS_LEARNED,
             POSITION_ENCODING_ABS_SINUSOID,
-        ]:
-            if position_ids is not None:
-                position_ids = position_ids.view(-1, input_shape[-1])
+        ]:  
+            ## To support multi-dimensional position ids (of shape (d_positions, batch, seq_len)),
+            ## We commented out this part!
+            # if position_ids is not None:
+            #     position_ids = position_ids.view(-1, input_shape[-1])
 
             if past_key_values is None:
                 past_length = 0
@@ -896,7 +907,11 @@ class CustomT5Stack(T5Stack):
                 )
                 position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
 
-            position_embeds = self.wpe(position_ids)
+            if self.position_dim is None:
+                position_embeds = self.wpe(position_ids)
+            elif self.position_dim >= 1:
+                assert self.position_dim == position_ids.size(0), f"{self.position_dim} != {position_ids.size(0)}"
+                position_embeds = sum(pe(pid) for pe, pid in zip(self.wpe, position_ids))
             inputs_embeds += position_embeds
 
         batch_size, seq_length = input_shape

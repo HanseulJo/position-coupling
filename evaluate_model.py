@@ -5,6 +5,7 @@ from hydra import compose, initialize
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import omegaconf
 import os
 import torch
 from tqdm import tqdm
@@ -91,8 +92,12 @@ def evaluate(args):
     instancewise_accuracies = []
 
     for n_digits in reversed(range(min_n_digits, max_n_digits+1, step)):
-        cfg.task.val_long.min_n_digits = n_digits
-        cfg.task.val_long.max_n_digits = n_digits
+        try:
+            cfg.task.val_long.min_n_digits = n_digits
+            cfg.task.val_long.max_n_digits = n_digits
+        except omegaconf.errors.ConfigAttributeError:
+            cfg.task.val_long.min_n_len = n_digits
+            cfg.task.val_long.max_n_len = n_digits
         print(f"N={n_digits}")
 
         # Random seed
@@ -126,17 +131,6 @@ def evaluate(args):
                 loss_sum += loss.float() * batchsize
                 logits = model_output.logits
                 pred = torch.argmax(logits, dim=-1)
-                # if batch_idx == 0:
-                #     print("Input     :", model_inputs['input_ids'][0])
-                #     if 'position_ids' in model_inputs:
-                #         print("Position  :", model_inputs['position_ids'][0])
-                #     if cfg.model.model_name in DECODER_BASED:
-                #         lab = model_inputs['labels'][0, 1:]
-                #         print("Prediction:", pred[0, :-1][lab != -100])
-                #     else:
-                #         lab = model_inputs['labels'][0]
-                #         print("Prediction:", pred[0][lab != -100])
-                #     print("Label     :", lab[lab != -100])
                 tokenwise_correct, num_tokens = get_tokenwise_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False)
                 instancewise_correct, _ = get_instancewise_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False)
                 tokenwise_correct_sum += tokenwise_correct

@@ -70,3 +70,18 @@ def print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model:CustomDecode
             "\nDecoded:", decoded)
 
     return input_str, label_str, decoded, text
+
+def print_2D(model_inputs, pred, id_0):
+    position_ids = model_inputs['position_ids'][:,0].cpu().numpy()
+    print("Position  :", position_ids)
+    width = position_ids[0][position_ids[0]>0].max() - position_ids[0][position_ids[0]>0].min()
+    height = position_ids[1][position_ids[1]>0].max() - position_ids[1][position_ids[1]>0].min()
+    
+    lab = model_inputs['labels'][0, 1:]
+    prediction = pred[0, :-1][lab != -100].cpu().numpy()[:-1].reshape(height, width) - id_0
+    label = lab[lab != -100].cpu().numpy()[:-1].reshape(height, width) - id_0
+
+    print("Prediction:")
+    print(prediction)
+    print("Label:")
+    print(label)
