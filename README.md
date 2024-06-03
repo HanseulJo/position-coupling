@@ -3,20 +3,18 @@
 
 ## Paper
 
-Link to paper: TBD
+Link to paper: https://arxiv.org/abs/2405.20671
 
 ## Citation
 
-TBD
-
-<!-- ```bibtex
+```bibtex
 @article{cho2024position,
     title={Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers}, 
     author={Hanseul Cho and Jaeyoung Cha and Pranjal Awasthi and Srinadh Bhojanapalli and Anupam Gupta and Chulhee Yun},
-    journal={arXiv preprint arXiv:2405.#####},
+    journal={arXiv preprint arXiv:2405.20671},
     year={2024}
 }
-``` -->
+```
 
 ## Conda Environment Setting
 
