@@ -1,5 +1,6 @@
 symbol: +
 commutative: False
+reverse_input: False
 reverse_output: True
 eos: True
 bos_to_eos: True

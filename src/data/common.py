@@ -41,7 +41,8 @@ class ArithmeticDataset(Dataset):
         super().__init__()
         self.inputs = []
         self.labels = []
-        self.reverse_output = False  # True
+        self.reverse_input = False
+        self.reverse_output = False
         self.pad_token = SpecialToken.pad  # '0'
 
     def __len__(self):
@@ -50,6 +51,8 @@ class ArithmeticDataset(Dataset):
     def __getitem__(self, index):
         inputs = self.inputs[index]
         labels = self.labels[index]
+        if self.reverse_input:
+            inputs = labels[::-1]
         if self.reverse_output:
             labels = labels[::-1]
         # Put white spaces

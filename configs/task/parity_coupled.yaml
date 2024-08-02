@@ -1,4 +1,5 @@
 symbol: parity
+
 eos: True
 bos_to_eos: True
 max_position: 21

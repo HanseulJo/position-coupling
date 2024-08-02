@@ -2,6 +2,7 @@ symbol: parity
 reversed_scratchpad: False
 eos: True
 bos_to_eos: True
+
 vocab: 0 1 =
 
 train:

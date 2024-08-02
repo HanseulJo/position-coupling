@@ -11,6 +11,7 @@ class MineSweeperGeneratorDataset(ArithmeticDataset):
             min_mine_ratio,
             max_mine_ratio,
             reverse_output=False,
+            row_col_symm=True,  # to test whether sharing PE modules is beneficial
             **kwargs
         ):
         super().__init__()
@@ -42,8 +43,10 @@ class MineSweeperGeneratorDataset(ArithmeticDataset):
             label_board[ :n_height  , :n_width  ] += one_hot_board  # upper left
             label_board[ :n_height  ,1:n_width+1] += one_hot_board  # upper 
             label_board[ :n_height  ,2:         ] += one_hot_board  # upper right
-            label_board[1:n_height+1, :n_width  ] += one_hot_board  # left
-            label_board[1:n_height+1,2:         ] += one_hot_board  # right
+            if row_col_symm: 
+                ## to test shared vs separate position embedding modules for row & col
+                label_board[1:n_height+1, :n_width  ] += one_hot_board  # left
+                label_board[1:n_height+1,2:         ] += one_hot_board  # right
             label_board[2:          , :n_width  ] += one_hot_board  # lower left
             label_board[2:          ,1:n_width+1] += one_hot_board  # lower
             label_board[2:          ,2:         ] += one_hot_board  # lower right

@@ -1,6 +1,8 @@
 symbol: parity
+
 eos: True
 bos_to_eos: True
+
 vocab: 0 1 =
 
 train:

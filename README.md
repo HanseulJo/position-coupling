@@ -3,7 +3,7 @@
 
 ## Paper
 
-Link to paper: https://arxiv.org/abs/2405.20671
+Link to paper: [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
 
 ## Citation
 

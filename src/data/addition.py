@@ -114,6 +114,7 @@ class AdditionDataset(ArithmeticDataset):
             n_data,
             min_n_digits,
             max_n_digits,
+            reverse_input=False,
             reverse_output=False,
             commutative=False,
             padding=False,
@@ -122,6 +123,7 @@ class AdditionDataset(ArithmeticDataset):
             **kwargs
         ):
         super().__init__()
+        self.reverse_input = reverse_input
         self.reverse_output = reverse_output
         self.inputs = []
         self.labels = []
@@ -168,6 +170,7 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
             n_data,
             min_n_digits,
             max_n_digits,
+            reverse_input=False,
             reverse_output=False,
             commutative=False,
             padding=False,
@@ -184,7 +187,7 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
         self.cyclic = cyclic
         self.vanilla = vanilla # not a coupled position; vanilla randomized APE
         super().__init__(n_data, min_n_digits, max_n_digits,
-            reverse_output, commutative, padding, pad_token,
+            reverse_input, reverse_output, commutative, padding, pad_token,
             hard_carry, **kwargs)
 
     def __getitem__(self, index):
@@ -210,6 +213,10 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
             end = start + max_len + 1
             input_positions = list(range(end-len(a), end+1)) + list(range(end-len(b), end+1))
             label_positions = list(range(end-len(labels), end))
+        if self.reverse_input:
+            inputs = inputs[::-1]
+            if not self.vanilla:
+                input_positions[:-1] = input_positions[:-1][::-1]
         if self.reverse_output:
             labels = labels[::-1]
             if not self.vanilla:
@@ -227,6 +234,7 @@ class AdditionDatasetWithIndexHints(AdditionDataset):
             n_data,
             min_n_digits,
             max_n_digits,
+            reverse_input=False,
             reverse_output=False,
             commutative=False,
             padding=False,
@@ -240,7 +248,7 @@ class AdditionDatasetWithIndexHints(AdditionDataset):
         self.max_position = max_position
         self.padding = padding
         super().__init__(n_data, min_n_digits, max_n_digits,
-            reverse_output, commutative, padding, pad_token,
+            reverse_input, reverse_output, commutative, padding, pad_token,
             hard_carry, **kwargs)
         
     def __getitem__(self, index):

@@ -123,18 +123,18 @@ class ParityDatasetWithScratchpadAndCoupledPositions(ParityDatasetWithScratchpad
         
         if self.reversed_scratchpad:
             # naive
-            # input_positions = list(range(start, start + len(inputs) + 1))
-            # label_positions = list(range(start, start + len(labels)))[::-1]
+            input_positions = list(range(start, start+len(inputs)))
+            label_positions = list(range(start, start+len(labels)+1))[::-1]
             # construction
-            input_positions = list(range(start+1, start + len(inputs) + 1))
-            label_positions = list(range(start, start + len(labels) + 1))[::-1]
+            # input_positions = list(range(start+1, start + len(inputs) + 1))
+            # label_positions = list(range(start, start + len(labels) + 1))[::-1]
         else:
             # naive
-            # input_positions = list(range(start, start + len(inputs) + 1))
-            # label_positions = list(range(start, start + len(labels)))
+            input_positions = list(range(start+1, start+1+len(inputs)))
+            label_positions = list(range(start, start+len(labels)+1))
             # construction
-            input_positions = list(range(start, start + len(inputs)))
-            label_positions = list(range(start, start + len(labels) + 1))
+            # input_positions = list(range(start, start + len(inputs)))
+            # label_positions = list(range(start, start + len(labels) + 1))
         # Put white spaces
         inputs = " ".join(inputs)
         labels = " ".join(labels)

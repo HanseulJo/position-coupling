@@ -205,6 +205,7 @@ def run(args):
                         id_0 = tokenizer.token_to_id('0')
                         d_positions = getattr(cfg.model, 'd_positions', None)
                         if d_positions is None:
+                            print(phase.upper())
                             print("Input     :", model_inputs['input_ids'][0].cpu().numpy() - id_0)
                             if 'position_ids' in model_inputs:
                                 print("Position  :", model_inputs['position_ids'][0].cpu().numpy())
