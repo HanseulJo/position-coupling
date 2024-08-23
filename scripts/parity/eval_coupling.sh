@@ -15,7 +15,7 @@ python evaluate_model.py \
     --step 5 \
     --overrides \
         ++best=$best \
-        device=cuda:2 \
+        device=cuda:0 \
         group_name=Parity_${n_train}_${n_test} \
         exp_name=coupled_maxpos${maxpos}_${n_layers}layers_${n_heads}heads \
         seed=$seed \
@@ -26,8 +26,8 @@ python evaluate_model.py \
         task.train.max_n_digits=$n_train \
         task.train.n_data=1 \
         task.val.n_data=1 \
-        task.val_long.n_data=100000 \
-        training.batch_size_eval=1000
+        task.val_long.n_data=10000 \
+        training.batch_size_eval=100
 done
 done
 done

@@ -52,69 +52,10 @@ class ArithmeticDataset(Dataset):
         inputs = self.inputs[index]
         labels = self.labels[index]
         if self.reverse_input:
-            inputs = labels[::-1]
+            inputs = inputs[::-1]
         if self.reverse_output:
             labels = labels[::-1]
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))  # Converts 'P' --> pad_token
         labels = " ".join(labels).replace('P', str(self.pad_token))  # Converts 'P' --> pad_token
         return inputs, labels
-
-
-class ArithmeticDatasetUniformSampling(ArithmeticDataset):
-    def __init__(self, 
-            operation:Operation, 
-            n_data, 
-            min_n_digits, 
-            max_n_digits,
-            reverse_output=False,
-            commutative=False,
-            padding=False, # dynamic zero padding
-            **kwargs
-        ):
-        super().__init__()
-        self.reverse_output = reverse_output
-        self.inputs = []
-        self.labels = []
-        for i in range(n_data):
-            numbers = []
-            # uniform sampling of n_digits of two numbers
-            n_digits_arr = torch.randint(low=min_n_digits, 
-                                         high=max_n_digits+1, size=(2, ))
-            for i in range(operation.n_input):
-                n_digits = n_digits_arr[i].item()
-                # uniform sampling of a number
-                if n_digits == 1:
-                    num = torch.randint(0, 10, size=(1,)).item()
-                else:
-                    num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
-                    num = int(''.join(map(str, num_arr)))
-                # num = torch.randint(low=10**(n_digits-1) - (1 if n_digits==1 else 0), high=10**n_digits, size=(1,)).item()
-                numbers.append(int(num))
-            
-            if operation.n_input == 2 and operation.symbol in ['+']:
-                a, b = numbers
-                _max_len = max(len(str(a)), len(str(b)))
-                self.inputs.append(f"{a:0{_max_len}d}{operation.symbol}{b:0{_max_len}d}" if padding else f"{a}{operation.symbol}{b}")
-                self.labels.append(f"{operation([a,b])}")
-                if commutative and a != b:
-                    self.inputs.append(f"{b:0{_max_len}d}{operation.symbol}{a:0{_max_len}d}" if padding else f"{b}{operation.symbol}{a}")
-                    self.labels.append(f"{operation([b,a])}")
-            elif operation.n_input == 2 and operation.symbol in ['*']:
-                a, b = numbers
-                self.inputs.append(f"{a}{operation.symbol}{b}")
-                self.labels.append(f"{operation([a,b])}")
-                if commutative and a != b:
-                    self.inputs.append(f"{b}{operation.symbol}{a}")
-                    self.labels.append(f"{operation([b,a])}")
-            elif operation.n_input == 2 and operation.symbol in BINARY_OPS:
-                a, b = numbers
-                self.inputs.append(f"{a}{operation.symbol}{b}")
-                self.labels.append(f"{operation([a,b])}")
-            elif operation.n_input == 1: 
-                # self.inputs.append(f"{operation.symbol}({numbers[0]})".replace(' ',''))
-                self.inputs.append(f"{numbers[0]}")
-                self.labels.append(f"{operation(numbers[0])}")
-            else:
-                self.inputs.append(f"{operation.symbol}{tuple(numbers)}".replace(' ',''))
-                self.labels.append(f"{operation(numbers)}")

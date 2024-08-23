@@ -1,5 +1,4 @@
 symbol: copy
-commutative: False
 reverse_output: False
 eos: True
 bos_to_eos: False

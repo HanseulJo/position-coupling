@@ -34,6 +34,13 @@ def evaluate(args):
     initialize(version_base=None, config_path=config_path) 
     cfg = compose(config_name=config_name, overrides=overrides)
 
+    # Bring model configs
+    logging_path = os.path.join("log", cfg.group_name, cfg.exp_name, f"seed{cfg.seed}_seedData{cfg.seed_data}")
+    with open(os.path.join(logging_path, "cfg.json")) as f:
+        dict_cfg = json.load(f)
+    for k in dict_cfg['model']:
+        cfg.model[k] = dict_cfg['model'][k]
+    
     # device
     if cfg.device=='cpu':
         device = torch.device('cpu')

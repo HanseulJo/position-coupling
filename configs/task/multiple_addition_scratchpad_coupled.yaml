@@ -1,0 +1,57 @@
+symbol: +
+reverse_input: True
+reverse_output: True
+reverse_output_order: False
+padding: False
+pad_token: '0'
+max_position_digits: 30
+max_position_operands: 10
+
+vocab: 0 1 2 3 4 5 6 7 8 9 + > =
+eos: True
+bos_to_eos: True
+
+train:
+  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 10
+  min_n_operands: 2
+  max_n_operands: 5
+  n_data: 1000000
+  randomize: True
+
+val:
+  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 10
+  min_n_operands: 2
+  max_n_operands: 5
+  n_data: 10000
+  randomize: False
+
+val_many_digits:
+  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  min_n_digits: 1
+  max_n_digits: 10
+  min_n_operands: 6
+  max_n_operands: 7
+  n_data: 10000
+  randomize: False
+
+val_many_operands:
+  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  min_n_digits: 11
+  max_n_digits: 15
+  min_n_operands: 2
+  max_n_operands: 5
+  n_data: 10000
+  randomize: False
+
+val_long:
+  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  min_n_digits: 11
+  max_n_digits: 15
+  min_n_operands: 6
+  max_n_operands: 7
+  n_data: 10000
+  randomize: False

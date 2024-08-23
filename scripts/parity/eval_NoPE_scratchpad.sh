@@ -2,27 +2,25 @@ cd ../..
 
 n_train=20
 n_test=50
-maxpos=101
-n_layers=1
-n_heads=4
+n_layers=6
+n_heads=8
 
-for best in True False; do
+for best in False True; do
 for seed in 0 1 2 3; do
 for seed_data in 0 1; do
 python evaluate_model.py \
     --min_n_digits 5 \
-    --max_n_digits 100 \
+    --max_n_digits 50 \
     --step 5 \
     --overrides \
         ++best=$best \
         device=cuda:0 \
         group_name=Parity_${n_train}_${n_test} \
-        exp_name=coupled_plainscratchpad_maxpos${maxpos}_${n_layers}layers_${n_heads}heads \
+        exp_name=NoPE_plainscratchpad_${n_layers}layers_${n_heads}heads \
         seed=$seed \
         seed_data=$seed_data \
-        task=parity_scratchpad_coupled \
+        task=parity_scratchpad \
         task.reversed_scratchpad=False \
-        task.max_position=$maxpos \
         task.train.min_n_digits=1 \
         task.train.max_n_digits=$n_train \
         task.train.n_data=1 \

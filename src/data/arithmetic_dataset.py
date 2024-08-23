@@ -26,7 +26,7 @@ def build_dataset(cfg, verbose=True):
 
     operation = Operation(symbol, n_input, operation)
     dataset = {}
-    phases = ['train', 'val', 'val_hard', 'val_long', 'val_long_hard']
+    phases = ['train'] + [k for k in task_cfg.keys() if k.startswith('val')]
     common_task_cfg = task_cfg.copy()
     for k in phases:
         if k in common_task_cfg:
