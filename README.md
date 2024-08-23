@@ -69,7 +69,7 @@ log/
 If you have multiple number of devices (e.g., GPUs), we highly recommend you to run `run_parallel.py` to train the models with exactly the same configuration but with different combinations of random seeds.
 
 ```bash
-python run.py \
+python run_parallel.py \
     --use_wandb \
     --group_name "<GroupName>" \
     --exp_name "<ExperimentName>" \
