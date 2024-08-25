@@ -14,17 +14,17 @@ d_model=512
 d_ff=2048
 d_kv=$((d_model/n_heads))
 # n_data=8000000
-bs=800
+bs=500
 
 
-for n_data in 20000 100000 1000000 10000000; do
+for n_data in 100000 1000000 10000000 10000; do
 python run_parallel.py \
     --use_wandb \
     --group_name MultipleAdditionScratchpad_di${n_train}_${n_test}_op${m_train}_${m_test} \
     --exp_name coupled_nopad_revall_maxpos_di${maxpos_d}_op${maxpos_o}_${n_layers}layers_${n_heads}heads_Data${n_data} \
     --seeds 0 1 2 \
     --seeds_data 0 1 \
-    --devices 2 3 4 \
+    --devices 0 1 \
     --num_exp_per_device 1 \
     --overrides \
         project_name='PositionCoupling with Scratchpad' \

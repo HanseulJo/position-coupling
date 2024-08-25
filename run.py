@@ -313,10 +313,11 @@ def run(args):
     
     # Finish W&B
     if use_wandb:
-        for phase in phases:
-            input_str, label_str, decoded, _ = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=not use_wandb)
-            text_table[phase].add_data(input_str, label_str, decoded)
-            run.log({f"{phase}_text_table": text_table[phase]})
+        if getattr(cfg.model, 'd_positions', None) is None:
+            for phase in phases:
+                input_str, label_str, decoded, _ = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=not use_wandb)
+                text_table[phase].add_data(input_str, label_str, decoded)
+                run.log({f"{phase}_text_table": text_table[phase]})
 
         wandb.finish()
     
