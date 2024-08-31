@@ -10,14 +10,14 @@ n_layers=6
 n_heads=8
 lr=0.0001
 wd=0.01
-d_model=512
-d_ff=2048
+d_model=256
+d_ff=1024
 d_kv=$((d_model/n_heads))
-# n_data=8000000
-bs=500
+# n_data=100000
+bs=800
 
 
-for n_data in 100000 1000000 10000000 10000; do
+for n_data in 100000 1000000 10000000 20000; do
 python run_parallel.py \
     --use_wandb \
     --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \

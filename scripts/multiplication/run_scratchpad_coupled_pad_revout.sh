@@ -10,14 +10,14 @@ n_layers=6
 n_heads=8
 lr=0.0001
 wd=0.01
-d_model=512
-d_ff=2048
+d_model=256
+d_ff=1024
 d_kv=$((d_model/n_heads))
-n_data=100000
-bs=500
+# n_data=100000
+bs=800
 
 
-# for n_data in 100000 1000000 10000000 10000; do
+for n_data in 100000 1000000 10000000 20000; do
 python run_parallel.py \
     --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \
     --exp_name coupled_pad_revout_maxpos_di${maxpos_d}_op${maxpos_o}_${n_layers}layers_${n_heads}heads_Data${n_data} \
@@ -76,4 +76,4 @@ python run_parallel.py \
         training.n_steps=50000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd
-# done
+done

@@ -63,12 +63,12 @@ def run(args):
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
         device = torch.device(cfg.device)
-        device_type = 'gpu'
+        device_type = 'cuda'
     
     # Data type & device
     dtype = 'float16' if not torch.cuda.is_bf16_supported() else 'bfloat16'
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
-    if device_type == 'gpu':
+    if device_type == 'cuda':
         ctx = torch.cuda.amp.autocast(dtype=ptdtype)
         scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
     else:
