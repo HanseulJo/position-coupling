@@ -5,7 +5,7 @@ import torch
 
 from .optimization import get_custom_cosine_schedule_with_warmup, get_custom_linear_schedule_with_warmup
 
-def set_seed(seed: int, device_type='gpu'):
+def set_seed(seed: int, device_type='cuda'):
     """
     Helper function for reproducible behavior to set the seed in `random`, `numpy`, and `torch`.
 
@@ -15,7 +15,7 @@ def set_seed(seed: int, device_type='gpu'):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    if device_type == 'gpu':
+    if device_type == 'cuda':
         torch.cuda.manual_seed_all(seed)
     # elif device_type == 'tpu':
     #     import torch_xla.core.xla_model as xm

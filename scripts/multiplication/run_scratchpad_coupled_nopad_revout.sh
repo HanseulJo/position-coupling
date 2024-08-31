@@ -4,7 +4,7 @@ n_train=10
 n_test=15
 m_train=5
 m_test=7
-maxpos_d=20
+maxpos_d=25
 maxpos_o=10
 n_layers=6
 n_heads=8
@@ -20,7 +20,7 @@ bs=500
 for n_data in 100000 1000000 10000000 10000; do
 python run_parallel.py \
     --use_wandb \
-    --group_name MultipleAdditionScratchpad_di${n_train}_${n_test}_op${m_train}_${m_test} \
+    --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \
     --exp_name coupled_nopad_revout_maxpos_di${maxpos_d}_op${maxpos_o}_${n_layers}layers_${n_heads}heads_Data${n_data} \
     --seeds 0 1 2 \
     --seeds_data 0 1 \
@@ -38,40 +38,39 @@ python run_parallel.py \
         model.d_ff=$d_ff \
         model.d_kv=$d_kv \
         model.n_positions=$((maxpos_d+1)) \
-        ++model.d_positions=2 \
+        ++model.d_positions=3 \
         ++model.share_pe=False \
         model.save=True \
-        task=multiple_addition_scratchpad_coupled \
+        task=multiplication_scratchpad_coupled \
         task.reverse_input=False \
         task.reverse_output=True \
-        task.reverse_output_order=False \
         task.padding=False \
         task.max_position_digits=$maxpos_d \
         task.max_position_operands=$maxpos_o \
-        task.train.min_n_digits=1 \
-        task.train.max_n_digits=$n_train \
-        task.train.min_n_operands=2 \
-        task.train.max_n_operands=$m_train \
+        task.train.min_n_digits_1=1 \
+        task.train.max_n_digits_1=$n_train \
+        task.train.min_n_digits_2=1 \
+        task.train.max_n_digits_2=$m_train \
         task.train.n_data=$n_data \
-        task.val.min_n_digits=1 \
-        task.val.max_n_digits=$n_train \
-        task.val.min_n_operands=2 \
-        task.val.max_n_operands=$m_train \
+        task.val.min_n_digits_1=1 \
+        task.val.max_n_digits_1=$n_train \
+        task.val.min_n_digits_2=1 \
+        task.val.max_n_digits_2=$m_train \
         task.val.n_data=10000 \
-        task.val_many_digits.min_n_digits=$((n_train+1)) \
-        task.val_many_digits.max_n_digits=$n_test \
-        task.val_many_digits.min_n_operands=2 \
-        task.val_many_digits.max_n_operands=$m_train \
-        task.val_many_digits.n_data=10000 \
-        task.val_many_operands.min_n_digits=1 \
-        task.val_many_operands.max_n_digits=$n_train \
-        task.val_many_operands.min_n_operands=$((m_train+1)) \
-        task.val_many_operands.max_n_operands=$m_test \
-        task.val_many_operands.n_data=10000 \
-        task.val_long.min_n_digits=$((n_train+1)) \
-        task.val_long.max_n_digits=$n_test \
-        task.val_long.min_n_operands=$((m_train+1)) \
-        task.val_long.max_n_operands=$m_test \
+        task.val_long_first.min_n_digits_1=$((n_train+1)) \
+        task.val_long_first.max_n_digits_1=$n_test \
+        task.val_long_first.min_n_digits_2=1 \
+        task.val_long_first.max_n_digits_2=$m_train \
+        task.val_long_first.n_data=10000 \
+        task.val_long_second.min_n_digits_1=1 \
+        task.val_long_second.max_n_digits_1=$n_train \
+        task.val_long_second.min_n_digits_2=$((m_train+1)) \
+        task.val_long_second.max_n_digits_2=$m_test \
+        task.val_long_second.n_data=10000 \
+        task.val_long.min_n_digits_1=$((n_train+1)) \
+        task.val_long.max_n_digits_1=$n_test \
+        task.val_long.min_n_digits_2=$((m_train+1)) \
+        task.val_long.max_n_digits_2=$m_test \
         task.val_long.n_data=10000 \
         training.batch_size_train=$bs \
         training.batch_size_eval=100 \

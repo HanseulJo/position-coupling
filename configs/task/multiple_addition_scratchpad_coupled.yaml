@@ -12,7 +12,7 @@ eos: True
 bos_to_eos: True
 
 train:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDatasetWithCoupledPositions
   min_n_digits: 1
   max_n_digits: 10
   min_n_operands: 2
@@ -21,7 +21,7 @@ train:
   randomize: True
 
 val:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDatasetWithCoupledPositions
   min_n_digits: 1
   max_n_digits: 10
   min_n_operands: 2
@@ -30,7 +30,7 @@ val:
   randomize: False
 
 val_many_digits:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDatasetWithCoupledPositions
   min_n_digits: 1
   max_n_digits: 10
   min_n_operands: 6
@@ -39,7 +39,7 @@ val_many_digits:
   randomize: False
 
 val_many_operands:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDatasetWithCoupledPositions
   min_n_digits: 11
   max_n_digits: 15
   min_n_operands: 2
@@ -48,7 +48,7 @@ val_many_operands:
   randomize: False
 
 val_long:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDatasetWithCoupledPositions
   min_n_digits: 11
   max_n_digits: 15
   min_n_operands: 6

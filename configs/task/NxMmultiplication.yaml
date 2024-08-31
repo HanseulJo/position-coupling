@@ -11,19 +11,16 @@ train:
   dataset_cls: NxMMultiplicationDataset
   min_n_digits: 1
   max_n_digits: 5
-  M: 1
   n_data: 100000
 
 val:
   dataset_cls: NxMMultiplicationDataset
   min_n_digits: 5
   max_n_digits: 5
-  M: 1
   n_data: 10000
 
 val_long:
   dataset_cls: NxMMultiplicationDataset
   min_n_digits: 10
   max_n_digits: 10
-  M: 1
   n_data: 10000

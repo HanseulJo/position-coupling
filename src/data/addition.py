@@ -109,7 +109,8 @@ def generate_scratchpad_multiple_addition(numbers: list, reversed_num=True, reve
     for num in numbers[::-1 if reversed_order else 1]:
         cum_sums.append(cum_sums[-1] + num)
     cum_sums_str = ['P'*max(0, pad_len-len(csum)) + csum for csum in map(str, cum_sums[1:])]
-    cum_sums_str = [x[::-1 if reversed_num else 1] for x in cum_sums_str]
+    if reversed_num:
+        cum_sums_str = [x[::-1] for x in cum_sums_str]
     scratchpad = '>'.join(cum_sums_str)
     return scratchpad
 
@@ -407,7 +408,7 @@ class MultipleAdditionDatasetWithCoupledPositions(MultipleAdditionDataset):
 #########################################################
 
 
-class MultipleAdditionDatasetScratchPad(ArithmeticDataset):                                                                       
+class MultipleAdditionScratchPadDataset(ArithmeticDataset):                                                                       
     def __init__(self,
             n_data,
             min_n_digits,
@@ -451,10 +452,10 @@ class MultipleAdditionDatasetScratchPad(ArithmeticDataset):
                 reversed_order=reverse_output_order,
                 pad_len=max_len+overflow if padding else 0
             )
-            if padding:
-                _inputs = '+'.join(f"{'P'*(max_len-len(str(a)))}{a}"[::-1 if reverse_input else 1] for a in numbers)
-            else:
-                _inputs = '+'.join(str(a)[::-1 if reverse_input else 1] for a in numbers)
+            if padding:_inputs = [f"{'P'*(max_len-len(str(a)))}{a}" for a in numbers]
+            else: _inputs = list(map(str, numbers))
+            if reverse_input: _inputs = [x[::-1] for x in _inputs]            
+            _inputs = '+'.join(_inputs)
             self.inputs.append(_inputs)
             self.labels.append(result)
 
@@ -470,7 +471,7 @@ class MultipleAdditionDatasetScratchPad(ArithmeticDataset):
 #########################################################
 
 
-class MultipleAdditionDatasetScratchPadWithCoupledPositions(MultipleAdditionDatasetScratchPad):                                                                       
+class MultipleAdditionScratchPadDatasetWithCoupledPositions(MultipleAdditionScratchPadDataset):                                                                       
     def __init__(self,
             n_data,
             min_n_digits,
@@ -523,7 +524,6 @@ class MultipleAdditionDatasetScratchPadWithCoupledPositions(MultipleAdditionData
         input_positions_2 = input_positions_2[1:] if self.reverse_input else input_positions_2[:-1]
         _iter = list(range(start, start+n_op))[::-1 if self.reverse_output_order else 1]
         label_positions_2 = sum(([j] * (len(b)+1) for b, j in zip(lab_numbers, _iter)), start=[])
-        if not self.reverse_output: label_positions_2 = label_positions_2[-1:] + label_positions_2[:-1]
         
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))

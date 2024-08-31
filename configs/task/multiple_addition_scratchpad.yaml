@@ -10,7 +10,7 @@ eos: True
 bos_to_eos: True
 
 train:
-  dataset_cls: MultipleAdditionDatasetScratchPad
+  dataset_cls: MultipleAdditionScratchPadDataset
   min_n_digits: 1
   max_n_digits: 10
   min_n_operands: 2
@@ -18,7 +18,7 @@ train:
   n_data: 1000000
 
 val:
-  dataset_cls: MultipleAdditionDatasetScratchPad
+  dataset_cls: MultipleAdditionScratchPadDataset
   min_n_digits: 1
   max_n_digits: 10
   min_n_operands: 2
@@ -26,7 +26,7 @@ val:
   n_data: 10000
 
 val_many_digits:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDataset
   min_n_digits: 1
   max_n_digits: 10
   min_n_operands: 6
@@ -34,7 +34,7 @@ val_many_digits:
   n_data: 10000
 
 val_many_operands:
-  dataset_cls: MultipleAdditionDatasetScratchPadWithCoupledPositions
+  dataset_cls: MultipleAdditionScratchPadDataset
   min_n_digits: 11
   max_n_digits: 15
   min_n_operands: 2
@@ -42,7 +42,7 @@ val_many_operands:
   n_data: 10000
 
 val_long:
-  dataset_cls: MultipleAdditionDatasetScratchPad
+  dataset_cls: MultipleAdditionScratchPadDataset
   min_n_digits: 11
   max_n_digits: 20
   min_n_operands: 6
