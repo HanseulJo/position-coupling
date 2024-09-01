@@ -10,11 +10,11 @@ n_layers=6
 n_heads=8
 lr=0.0001
 wd=0.01
-d_model=256
-d_ff=1024
+d_model=512
+d_ff=2048
 d_kv=$((d_model/n_heads))
 # n_data=100000
-bs=800
+bs=400
 
 
 for n_data in 100000 1000000 10000000 20000; do
