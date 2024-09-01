@@ -319,23 +319,27 @@ class MultiplicationScratchPadDatasetWithCoupledPositions(MultiplicationScratchP
         lab_numbers_1 = lab_numbers_1.split('+')
         lab_numbers_2 = lab_numbers_2.split('>')
         max_len_01 = max(map(len, [A, B] + lab_numbers_1))
-        max_len_2 = max(map(len, lab_numbers_2))
+        max_len_02 = max(map(len, [A, B] + lab_numbers_2))
 
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_01+1, size=(1,)).item()
+        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_01, size=(1,)).item()
         o = 1 if self.reverse_output else 0
         input_positions_1 = list(range(start+o, start+len(A)+o))[::1 if self.reverse_input else -1] + [0] * (len(B)+1)
         label_positions_1 = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_output else -1] for a in lab_numbers_1), start=[])
         label_positions_1 += [0] * (sum(map(len, lab_numbers_2)) + len(lab_numbers_2))
+        # assert all([x <= self.max_position_digits for x in input_positions_1+label_positions_1])
         
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_operands-len(B)+1, size=(1,)).item()
+        start = 1 if not self.randomize else torch.randint(1, self.max_position_operands-len(B), size=(1,)).item()
         input_positions_2 = [0] * (len(A)+1) + list(range(start, start+len(B)))[::1 if self.reverse_input else -1]
         label_positions_2 = sum(([i] * (len(a)+1) for a, i in zip(lab_numbers_1, range(start, start+len(lab_numbers_1)))), start=[])
         label_positions_2 += sum(([j] * (len(b)+1) for b, j in zip(lab_numbers_2, range(start, start+len(lab_numbers_2)))), start=[])
+        # assert all([x <= self.max_position_operands for x in input_positions_2+label_positions_2])
 
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_2+1, size=(1,)).item()
+        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_02, size=(1,)).item()
         input_positions_3 = [0] * (len(A) + 1 + len(B))
         label_positions_3 = sum((list(range(start+i, start+i+len(a)+1))[::1 if self.reverse_output else -1] for i, a in enumerate(lab_numbers_1)), start=[]) 
         label_positions_3 += sum((list(range(start, start+len(b)+1))[::1 if self.reverse_output else -1] for b in lab_numbers_2), start=[]) 
+        # pos_3 = torch.tensor(input_positions_3+label_positions_3)
+        # assert all([x <= self.max_position_digits for x in pos_3]), (start, inputs+'='+labels, (pos_3 > self.max_position_digits).numpy())
 
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))

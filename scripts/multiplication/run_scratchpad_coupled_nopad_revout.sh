@@ -24,7 +24,7 @@ python run_parallel.py \
     --exp_name coupled_nopad_revout_maxpos_di${maxpos_d}_op${maxpos_o}_${n_layers}layers_${n_heads}heads_Data${n_data} \
     --seeds 0 1 2 \
     --seeds_data 0 1 \
-    --devices 2 3 \
+    --devices 0 1 \
     --num_exp_per_device 1 \
     --overrides \
         project_name='PositionCoupling with Scratchpad' \
