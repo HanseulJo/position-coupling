@@ -85,14 +85,14 @@ def run(args):
         id_index_hint_end = tokenizer.token_to_id(str(int(cfg.task.max_position)+9))
 
     # Random seed for data
-    set_seed(seed=cfg.seed_data)
+    set_seed(seed=cfg.seed_data, device_type=device_type)
 
     # Dataset / Dataloader
     dataset = build_dataset(cfg)
     loader = build_loader(cfg, dataset, tokenizer, device)
 
     # Random seed for model & training
-    set_seed(seed=cfg.seed)
+    set_seed(seed=cfg.seed, device_type=device_type)
 
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
