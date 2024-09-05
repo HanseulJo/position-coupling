@@ -445,14 +445,14 @@ class MultipleAdditionScratchPadDataset(ArithmeticDataset):
                     num = int(''.join(map(str, num_arr)))
                 numbers.append(int(num))
             max_len = max(len(str(a)) for a in numbers)
-            overflow = len(str(int('9'*max_len)*n_operands)) - max_len
+            overflow = len(str(int('9'*max_len)*n_operands))
             result = generate_scratchpad_multiple_addition(
                 numbers,
                 reversed_num=reverse_output,
                 reversed_order=reverse_output_order,
-                pad_len=max_len+overflow if padding else 0
+                pad_len=overflow if padding else 0
             )
-            if padding:_inputs = [f"{'P'*(max_len-len(str(a)))}{a}" for a in numbers]
+            if padding:_inputs = [f"{'P'*(overflow-len(str(a)))}{a}" for a in numbers]
             else: _inputs = list(map(str, numbers))
             if reverse_input: _inputs = [x[::-1] for x in _inputs]            
             _inputs = '+'.join(_inputs)

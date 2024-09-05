@@ -475,6 +475,8 @@ class CustomT5Attention(T5Attention):
             relative_position = position_bias.long()
             num_buckets = self.relative_attention_num_buckets
             
+            # Map [-num_buckets//2, ..., 0, ..., num_buckets-1 - num_buckets//2] to [0, ..., num_buckets//2, ..., num_buckets-1]
+            # It is important to consistently map 0 to num_bucekts//2.
             relative_position_bucket = torch.clip(
                 relative_position + num_buckets//2,
                 torch.tensor(0).to(relative_position.device),
