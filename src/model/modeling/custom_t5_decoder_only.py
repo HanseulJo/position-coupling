@@ -120,7 +120,8 @@ class CustomT5Attention(T5Attention):
             config, "position_encoding_type", POSITION_ENCODING_REL_T5_BIAS
         )
 
-        if self.position_encoding_type == POSITION_ENCODING_REL_T5_BIAS and self.has_relative_attention_bias:
+        if (self.position_encoding_type == POSITION_ENCODING_REL_T5_BIAS and self.has_relative_attention_bias) \
+            or self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
             self.relative_attention_bias = nn.Embedding(
                 self.relative_attention_num_buckets, self.n_heads
             )
@@ -142,7 +143,7 @@ class CustomT5Attention(T5Attention):
             self.clamp_length = 1000
 
         elif self.position_encoding_type == POSITION_ENCODING_ROTARY:
-            self.rotary_dim = getattr(config, "rotary_dim", int(0.25 * self.d_head))
+            self.rotary_dim = getattr(config, "rotary_dim", self.d_head//4)
 
         elif self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
             # We hardcode the rotary dim to 25 percent of the head dim
@@ -336,6 +337,7 @@ class CustomT5Attention(T5Attention):
             scores = AC + BD
             if mask is not None:
                 scores += mask
+
         elif self.position_encoding_type == POSITION_ENCODING_ROTARY:
             r_seq_len = hidden_states.shape[1]
             r_offset = 0
@@ -438,6 +440,7 @@ class CustomT5Attention(T5Attention):
             )  # equivalent of torch.einsum("bnqd,bnkd->bnqk", query_states, key_states), compatible with onnx op>9
             if mask is not None:
                 scores += mask  # (batch_size, n_heads, seq_length, key_length)
+
         elif self.position_encoding_type == POSITION_ENCODING_ALiBi:
             scores = torch.matmul(query_states, key_states.transpose(3, 2))
             attention_output_dict["scores_before"] = scores
@@ -464,6 +467,33 @@ class CustomT5Attention(T5Attention):
                 position_bias = position_bias + mask
 
             scores += position_bias
+
+        elif self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
+            scores = torch.matmul(query_states, key_states.transpose(3, 2))
+            attention_output_dict["scores_before"] = scores
+
+            relative_position = position_bias.long()
+            num_buckets = self.relative_attention_num_buckets
+            
+            relative_position_bucket = torch.clip(
+                relative_position + num_buckets//2,
+                torch.tensor(0).to(relative_position.device),
+                torch.tensor(num_buckets-1).to(relative_position.device)
+            )
+            position_bias_rel = self.relative_attention_bias(relative_position_bucket) # shape (..., batchsize, query_length, key_length, num_heads)
+            if position_bias_rel.dim() == 5:  # If multi-level position ID comes in
+                position_bias_rel = position_bias_rel.sum(0)  # shape (batchsize, query_length, key_length, num_heads)
+            position_bias_rel = position_bias_rel.permute([0, 3, 1, 2]) # shape (batchsize, num_heads, query_length, key_length)
+
+            # if key and values are already calculated
+            # we want only the last query position bias
+            if past_key_value is not None:
+                position_bias_rel = position_bias_rel[:, :, -hidden_states.size(1) :, :]
+
+            if mask is not None:
+                position_bias_rel += mask # (batch_size, n_heads, seq_length, key_length)
+            
+            scores += position_bias_rel
         
         else:
             scores = torch.matmul(
@@ -474,7 +504,7 @@ class CustomT5Attention(T5Attention):
                 scores += mask  # (batch_size, n_heads, seq_length, key_length)
 
         if self.tempered_softmax:
-            scores[scores != float('-inf')] *= 1. / (self.d_head**.5) + self.tau * torch.log(torch.tensor(seq_length)).to(device=scores.device)
+            scores[scores != float('-inf')] *= 1. + self.tau * torch.log(torch.tensor(seq_length)).to(device=scores.device)
 
         attention_output_dict["scores"] = scores
 
@@ -907,8 +937,8 @@ class CustomT5Stack(T5Stack):
         ]:  
             ## To support multi-dimensional position ids (of shape (d_positions, batch, seq_len)),
             ## We commented out this part!
-            # if position_ids is not None:
-            #     position_ids = position_ids.view(-1, input_shape[-1])
+            if position_ids is not None and position_ids.dim() <= 2:
+                position_ids = position_ids.view(-1, input_shape[-1])
 
             if past_key_values is None:
                 past_length = 0
@@ -954,8 +984,11 @@ class CustomT5Stack(T5Stack):
                 inputs_embeds.device
             )
 
-        if self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
-            if position_ids is not None:
+        if self.position_encoding_type in [
+                POSITION_ENCODING_ROTARY_NEW,
+                POSITION_ENCODING_COUPLED_REL_BIAS
+            ]:
+            if position_ids is not None and position_ids.dim() <= 2:
                 position_ids = position_ids.view(-1, input_shape[-1])
 
             if past_key_values is None:
@@ -972,9 +1005,17 @@ class CustomT5Stack(T5Stack):
                     device=device,
                 )
                 position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
-
-            sinusoidal_pos = self.fixed_rotary_embedding(position_ids)
-            position_bias = sinusoidal_pos
+            
+            if self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
+                sinusoidal_pos = self.fixed_rotary_embedding(position_ids)
+                position_bias = sinusoidal_pos
+            
+            elif self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
+                ## Relative PE variant of Position Coupling (Cho et al., 2024) ##
+                context_position = position_ids.unsqueeze(-1)  # (..., batchsize, seqlen, 1)
+                memory_position = position_ids.unsqueeze(-2)   # (..., batchsize, 1, seqlen)
+                relative_position = memory_position - context_position
+                position_bias = relative_position  # (..., batchsize, seqlen, seqlen)
 
         # initialize past_key_values with `None` if past does not exist
         if past_key_values is None:
@@ -1167,6 +1208,7 @@ class CustomDecoderOnlyT5(T5PreTrainedModel):
                 POSITION_ENCODING_ROTARY_NEW,
                 POSITION_ENCODING_NONE,
                 POSITION_ENCODING_FIRE,
+                POSITION_ENCODING_COUPLED_REL_BIAS,
             ]:
                 raise ValueError(
                     f"Invalid position_encoding_type: {position_encoding_type}"

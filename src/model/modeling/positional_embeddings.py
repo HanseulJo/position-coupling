@@ -14,6 +14,7 @@ POSITION_ENCODING_ALiBi = "alibi"
 POSITION_ENCODING_ALiBi_LEARNED = "alibi_learned"
 POSITION_ENCODING_NONE = "none"
 POSITION_ENCODING_FIRE = "fire"
+POSITION_ENCODING_COUPLED_REL_BIAS = "coupled_relative_bias"
 
 def fixed_pos_embedding(x, seq_dim=1, seq_len=None):
     dim = x.shape[-1]
