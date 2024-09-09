@@ -120,11 +120,17 @@ class CustomT5Attention(T5Attention):
             config, "position_encoding_type", POSITION_ENCODING_REL_T5_BIAS
         )
 
-        if (self.position_encoding_type == POSITION_ENCODING_REL_T5_BIAS and self.has_relative_attention_bias) \
-            or self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
-            self.relative_attention_bias = nn.Embedding(
-                self.relative_attention_num_buckets, self.n_heads
-            )
+        if self.position_encoding_type == POSITION_ENCODING_REL_T5_BIAS and self.has_relative_attention_bias:
+            self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
+        
+        elif self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
+            self.position_dim = getattr(config, 'd_positions', None)
+            if self.position_dim is None:
+                self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
+            elif getattr(config, 'share_pe', False):
+                self.relative_attention_bias = nn.ModuleList([nn.Embedding(self.relative_attention_num_buckets, self.n_heads)] * self.position_dim)
+            else:
+                self.relative_attention_bias = nn.ModuleList([nn.Embedding(self.relative_attention_num_buckets, self.n_heads) for _ in range(self.position_dim)])
          
         elif self.position_encoding_type == POSITION_ENCODING_REL_TRANSFORMER_XL:
             self.r_r_bias = nn.Parameter(torch.FloatTensor(self.n_heads, self.d_head))
@@ -481,10 +487,14 @@ class CustomT5Attention(T5Attention):
                 relative_position + num_buckets//2,
                 torch.tensor(0).to(relative_position.device),
                 torch.tensor(num_buckets-1).to(relative_position.device)
-            )
-            position_bias_rel = self.relative_attention_bias(relative_position_bucket) # shape (..., batchsize, query_length, key_length, num_heads)
-            if position_bias_rel.dim() == 5:  # If multi-level position ID comes in
-                position_bias_rel = position_bias_rel.sum(0)  # shape (batchsize, query_length, key_length, num_heads)
+            ) # shape (..., batchsize, query_length, key_length, num_heads)
+            if self.position_dim is None:
+                position_bias_rel = self.relative_attention_bias(relative_position_bucket) # shape (batchsize, query_length, key_length, num_heads)
+            else:
+                # for i in range(self.position_dim):
+                #     print(relative_position_bucket[i,0].cpu().numpy())
+                assert self.position_dim == relative_position_bucket.size(0), f"{self.position_dim} != {relative_position_bucket.size(0)}"
+                position_bias_rel = sum(pe(bucket) for bucket, pe in zip(relative_position_bucket, self.relative_attention_bias)) # shape (batchsize, query_length, key_length, num_heads)
             position_bias_rel = position_bias_rel.permute([0, 3, 1, 2]) # shape (batchsize, num_heads, query_length, key_length)
 
             # if key and values are already calculated

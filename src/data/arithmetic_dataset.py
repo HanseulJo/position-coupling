@@ -77,7 +77,8 @@ def build_loader(
         device='cpu', 
         sampler=None, 
         num_workers=0, 
-        arr_type='torch'
+        arr_type='torch',
+        n_device=1
     ):
     if sampler is None:
         sampler = {}
@@ -89,7 +90,7 @@ def build_loader(
         loader[phase] = DataLoader(
             dataset[phase], 
             batch_size=(
-                cfg.training.batch_size_train 
+                cfg.training.batch_size_train // n_device
                 if phase == 'train' 
                 else cfg.training.batch_size_eval
             ), 

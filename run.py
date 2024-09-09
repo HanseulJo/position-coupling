@@ -147,6 +147,8 @@ def run(args):
     save = cfg.model.get('save', False)
 
     phases = list(loader.keys())  # ['train', 'val', 'val_long']
+    phases.remove('val_long')
+    phases.append('val_long')
     if use_wandb:
         columns = ["Input", "Label", "DecodedOutput"]
         text_table = {phase: wandb.Table(columns=columns) for phase in phases}

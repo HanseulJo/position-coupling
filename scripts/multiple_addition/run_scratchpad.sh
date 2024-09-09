@@ -1,8 +1,8 @@
 cd ../..
 
-n_train=10
-n_test=20
-m_train=6
+n_train=12
+n_test=18
+m_train=8
 m_test=12
 n_layers=6
 n_heads=8
@@ -11,16 +11,16 @@ wd=0.01
 d_model=512
 d_ff=2048
 d_kv=$((d_model/n_heads))
-n_data=100000
-bs=500
+n_data=1000000
+bs=400
 
 
 python run_parallel.py \
     --group_name MultipleAdditionScratchpad_di${n_train}_${n_test}_op${m_train}_${m_test} \
-    --exp_name NoPE_fullpad_revout_maxpos_di${maxpos_d}_op${maxpos_o}_${n_layers}layers_${n_heads}head_Data${n_data} \
+    --exp_name NoPE_pad_revout_maxpos_di${maxpos_d}_op${maxpos_o}_${n_layers}layers_${n_heads}head_Data${n_data} \
     --seeds 0 1 2 \
     --seeds_data 0 1  \
-    --devices 3 \
+    --devices 4 \
     --num_exp_per_device 1 \
     --overrides \
         project_name='PositionCoupling with Scratchpad' \
@@ -65,7 +65,7 @@ python run_parallel.py \
         task.val_long.max_n_operands=$m_test \
         task.val_long.n_data=10000 \
         training.batch_size_train=$bs \
-        training.batch_size_eval=100 \
-        training.n_steps=50000 \
+        training.batch_size_eval=50 \
+        training.n_steps=100000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd
