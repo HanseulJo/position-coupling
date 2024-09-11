@@ -20,15 +20,28 @@ d_ff: 3072
 num_layers: 6
 num_decoder_layers: null
 num_heads: 8
-relative_attention_num_buckets: 32   # only for t5_relative_bias
-relative_attention_max_distance: 128  # only for t5_relative_bias
 n_positions: 1024
+
+## Relative Biases ##
+relative_attention_num_buckets: null
+relative_attention_max_distance: null
+logarithmic_rel_bias_scale_base: null
+
+## RoPE ##
+rope_theta: null
+partial_rotary_factor: null
+head_dim: null
+rope_scaling:
+  factor: null
+  attention_factor: null
+  beta_fast: null
+  beta_slow: null
 
 ## Architecture Details ##
 dropout_rate: 0.0
 classifier_dropout: 0.0
-normalization_layer: layernorm  # layernorm, t5layernorm, rmsnorm
-layer_norm_position: post  # pre, post, pre_post
+normalization_layer: rmsnorm  # layernorm, t5layernorm, rmsnorm
+layer_norm_position: pre_post  # pre, post, pre_post
 layer_norm_epsilon: 0.000001
 initializer_factor: 1.0
 feed_forward_proj: gated-relu  # relu, gelu, gated-relu, gated-gelu
@@ -37,7 +50,7 @@ use_cache: True
 
 ## Tempered Softmax ##
 tempered_softmax: False
-tempered_softmax_std: 0.02
+tempered_softmax_std: null
 
 ## Common config ##
 do_sample: False

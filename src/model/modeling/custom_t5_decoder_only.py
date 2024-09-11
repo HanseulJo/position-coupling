@@ -125,6 +125,7 @@ class CustomT5Attention(T5Attention):
         
         elif self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
             self.position_dim = getattr(config, 'd_positions', None)
+            self.log_scale_base = getattr(config, 'logarithmic_rel_bias_scale_base', None)
             if self.position_dim is None:
                 self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
             elif getattr(config, 'share_pe', False):
@@ -148,12 +149,16 @@ class CustomT5Attention(T5Attention):
             self.pos_emb = PositionalEmbedding(self.d_model)
             self.clamp_length = 1000
 
-        elif self.position_encoding_type == POSITION_ENCODING_ROTARY:
+        elif self.position_encoding_type == POSITION_ENCODING_ROTARY_OLD:
             self.rotary_dim = getattr(config, "rotary_dim", self.d_head//4)
 
         elif self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
             # We hardcode the rotary dim to 25 percent of the head dim
             self.rotary_dim = self.d_head // 4
+
+        elif self.position_encoding_type.startswith('rotary_'):
+            rotary_factor = getattr(config, "partial_rotary_factor", getattr(config, 'rotary_factor', 1.0))
+            self.rotary_dim = int(self.d_head * rotary_factor)
 
         elif self.position_encoding_type == POSITION_ENCODING_FIRE:
             self.d_fire = getattr(config, 'd_fire', 32)
@@ -261,7 +266,7 @@ class CustomT5Attention(T5Attention):
 
         # get key states
         if self.position_encoding_type in [
-            POSITION_ENCODING_ROTARY,
+            POSITION_ENCODING_ROTARY_OLD,
             POSITION_ENCODING_ROTARY_NEW,
         ]:
             key_states = shape(self.k(hidden_states))
@@ -344,7 +349,7 @@ class CustomT5Attention(T5Attention):
             if mask is not None:
                 scores += mask
 
-        elif self.position_encoding_type == POSITION_ENCODING_ROTARY:
+        elif self.position_encoding_type == POSITION_ENCODING_ROTARY_OLD:
             r_seq_len = hidden_states.shape[1]
             r_offset = 0
 
@@ -364,8 +369,8 @@ class CustomT5Attention(T5Attention):
                 q_pass = query_states[:, :, :, self.rotary_dim :]
 
                 sincos = fixed_pos_embedding(k_rot, 1, seq_len=r_seq_len)
-                k_rot = apply_rotary_pos_emb(k_rot, sincos, offset=r_offset)
-                q_rot = apply_rotary_pos_emb(q_rot, sincos, offset=r_offset)
+                k_rot = apply_rotary_pos_emb_old(k_rot, sincos, offset=r_offset)
+                q_rot = apply_rotary_pos_emb_old(q_rot, sincos, offset=r_offset)
 
                 if output_attentions:
                     scores_pass = torch.matmul(
@@ -384,10 +389,8 @@ class CustomT5Attention(T5Attention):
                 query_states = torch.cat([q_rot, q_pass], dim=-1)
             else:
                 sincos = fixed_pos_embedding(key_states, 1, seq_len=r_seq_len)
-                key_states = apply_rotary_pos_emb(key_states, sincos, offset=r_offset)
-                query_states = apply_rotary_pos_emb(
-                    query_states, sincos, offset=r_offset
-                )
+                key_states = apply_rotary_pos_emb_old(key_states, sincos, offset=r_offset)
+                query_states = apply_rotary_pos_emb_old(query_states, sincos, offset=r_offset)
 
             query_states = query_states.permute(0, 2, 1, 3)
             key_states = key_states.permute(0, 2, 1, 3)
@@ -447,7 +450,29 @@ class CustomT5Attention(T5Attention):
             if mask is not None:
                 scores += mask  # (batch_size, n_heads, seq_length, key_length)
 
-        elif self.position_encoding_type == POSITION_ENCODING_ALiBi:
+        elif self.position_encoding_type.startswith('rotary_'):
+            # query_states, key_states: (batch_size, n_heads, seq_length, d_head)
+            q_rot = query_states[..., :self.rotary_dim]
+            q_pass = query_states[..., self.rotary_dim:]
+            k_rot = key_states[..., :self.rotary_dim]
+            k_pass = key_states[..., self.rotary_dim:]
+
+            cos, sin = position_bias
+            q_rot, k_rot = apply_rotary_pos_emb(q_rot, k_rot, cos, sin, unsqueeze_dim=1)
+
+            query_states = torch.cat([q_rot, q_pass], dim=-1)
+            key_states = torch.cat([k_rot, k_pass], dim=-1)
+
+            if past_key_value is not None:
+                key_states = torch.cat([past_key_value[0], key_states], dim=-1)
+
+            scores = torch.matmul(
+                query_states, key_states.transpose(3, 2)
+            )  # equivalent of torch.einsum("bnqd,bnkd->bnqk", query_states, key_states), compatible with onnx op>9
+            if mask is not None:
+                scores += mask  # (batch_size, n_heads, seq_length, key_length)
+
+        elif self.position_encoding_type == POSITION_ENCODING_ALIBI:
             scores = torch.matmul(query_states, key_states.transpose(3, 2))
             attention_output_dict["scores_before"] = scores
 
@@ -478,7 +503,8 @@ class CustomT5Attention(T5Attention):
             scores = torch.matmul(query_states, key_states.transpose(3, 2))
             attention_output_dict["scores_before"] = scores
 
-            relative_position = position_bias.long()
+            relative_position, attention_mask = position_bias
+            true_seq_len_tensor = (attention_mask==1).sum(-1)  # r(batchsize, )
             num_buckets = self.relative_attention_num_buckets
             
             # Map [-num_buckets//2, ..., 0, ..., num_buckets-1 - num_buckets//2] to [0, ..., num_buckets//2, ..., num_buckets-1]
@@ -505,7 +531,11 @@ class CustomT5Attention(T5Attention):
             if mask is not None:
                 position_bias_rel += mask # (batch_size, n_heads, seq_length, key_length)
             
-            scores += position_bias_rel
+            if self.log_scale_base is None:
+                scores += position_bias_rel
+            else:
+                log_scaler = torch.log(true_seq_len_tensor) / math.log(self.log_scale_base)
+                scores += position_bias_rel * log_scaler[:, None, None, None]  # log(seq_len) scaling for length generalization
         
         else:
             scores = torch.matmul(
@@ -801,26 +831,28 @@ class CustomT5Stack(T5Stack):
                 else:
                     self.wpe = nn.ModuleList([nn.Embedding(maxpos, config.d_model) for _ in range(self.position_dim)])
             
-
         if self.position_encoding_type == POSITION_ENCODING_ABS_SINUSOID:
             self.wpe = FixedAbsolutePositionalEmbedding(config.d_model)
 
-        if self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
+        elif self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
             # Rotary dim is X percentage of d_head
             # Right now, we just hardcode X here following:
             # https://github.com/huggingface/transformers/blob/v4.26.0/src/transformers/models/gpt_neox/configuration_gpt_neox.py
             rotary_dim = int(config.d_kv * 0.25)
-            self.fixed_rotary_embedding = FixedRotaryPositionalEmbedding(
-                rotary_dim, max_position=4096
-            )
+            self.rotary_embedding = FixedRotaryPositionalEmbedding(rotary_dim, max_position=4096)
 
-        if self.position_encoding_type in [
-            POSITION_ENCODING_ALiBi,
-            POSITION_ENCODING_ALiBi_LEARNED,
+        elif self.position_encoding_type.split('_')[1] in ROPE_INIT_FUNCTIONS:
+            rope_type = "_".join(self.position_encoding_type.split('_')[1:])
+            self.rotary_embedding = RotaryEmbedding(rope_type=rope_type, d_positions=self.position_dim, config=config)
+            self.pid_multiplier = getattr(config, 'pid_multiplier', None)
+
+        elif self.position_encoding_type in [
+            POSITION_ENCODING_ALIBI,
+            POSITION_ENCODING_ALIBI_LEARNED,
         ]:
             maxpos = getattr(config, 'n_positions', 2048)
             attn_heads = config.num_heads
-            if self.position_encoding_type == POSITION_ENCODING_ALiBi_LEARNED:
+            if self.position_encoding_type == POSITION_ENCODING_ALIBI_LEARNED:
                 self.learned_logslopes = nn.Parameter(
                     torch.log(torch.Tensor(self.get_slopes(attn_heads)))
                 )
@@ -996,10 +1028,8 @@ class CustomT5Stack(T5Stack):
                 inputs_embeds.device
             )
 
-        if self.position_encoding_type in [
-                POSITION_ENCODING_ROTARY_NEW,
-                POSITION_ENCODING_COUPLED_REL_BIAS
-            ]:
+        if self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS \
+           or self.position_encoding_type.startswith('rotary_'):
             if position_ids is not None and position_ids.dim() <= 2:
                 position_ids = position_ids.view(-1, input_shape[-1])
 
@@ -1018,16 +1048,18 @@ class CustomT5Stack(T5Stack):
                 )
                 position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
             
-            if self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
-                sinusoidal_pos = self.fixed_rotary_embedding(position_ids)
+            if self.position_encoding_type.startswith('rotary_'):
+                if self.training and self.pid_multiplier is not None:
+                    position_ids *= torch.randint(1, int(self.pid_multiplier)+1, (1,)).item()
+                sinusoidal_pos = self.rotary_embedding(position_ids)  # sinusoidal_pos == (cos, sin)
                 position_bias = sinusoidal_pos
-            
+                        
             elif self.position_encoding_type == POSITION_ENCODING_COUPLED_REL_BIAS:
                 ## Relative PE variant of Position Coupling (Cho et al., 2024) ##
                 context_position = position_ids.unsqueeze(-1)  # (..., batchsize, seqlen, 1)
                 memory_position = position_ids.unsqueeze(-2)   # (..., batchsize, 1, seqlen)
                 relative_position = memory_position - context_position
-                position_bias = relative_position  # (..., batchsize, seqlen, seqlen)
+                position_bias = relative_position, attention_mask  # (..., batchsize, seqlen, seqlen)
 
         # initialize past_key_values with `None` if past does not exist
         if past_key_values is None:
@@ -1039,14 +1071,14 @@ class CustomT5Stack(T5Stack):
             attention_mask, input_shape, inputs_embeds.device
         )
 
-        if self.position_encoding_type == POSITION_ENCODING_ALiBi:
+        if self.position_encoding_type == POSITION_ENCODING_ALIBI:
             num_heads = self.config.num_heads
             alibi = build_alibi_tensor(
                 attention_mask, num_heads, dtype=inputs_embeds.dtype
             )
             position_bias = alibi
 
-        if self.position_encoding_type in [POSITION_ENCODING_ALiBi_LEARNED]:
+        if self.position_encoding_type in [POSITION_ENCODING_ALIBI_LEARNED]:
             if not hasattr(self, "alibi"):
                 maxpos = 2048
                 attn_heads = self.config.num_heads
@@ -1206,18 +1238,23 @@ class CustomDecoderOnlyT5(T5PreTrainedModel):
         config.is_decoder = True
         config.is_encoder_decoder = False
         if position_encoding_type is not None:
-            if position_encoding_type == POSITION_ENCODING_ROTARY_RERUN:
-                position_encoding_type = POSITION_ENCODING_ROTARY
-
             if position_encoding_type not in [
-                POSITION_ENCODING_ALiBi,
-                POSITION_ENCODING_ALiBi_LEARNED,
+                POSITION_ENCODING_ALIBI,
+                POSITION_ENCODING_ALIBI_LEARNED,
                 POSITION_ENCODING_ABS_LEARNED,
                 POSITION_ENCODING_ABS_SINUSOID,
                 POSITION_ENCODING_REL_T5_BIAS,
                 POSITION_ENCODING_REL_TRANSFORMER_XL,
-                POSITION_ENCODING_ROTARY,
+                POSITION_ENCODING_ROTARY_OLD,
                 POSITION_ENCODING_ROTARY_NEW,
+                POSITION_ENCODING_ROTARY_DEFAULT,
+                POSITION_ENCODING_ROTARY_DEFAULT_HIROPE,
+                POSITION_ENCODING_ROTARY_DEFAULT_MULTIROPE,
+                POSITION_ENCODING_ROTARY_LINEAR,
+                POSITION_ENCODING_ROTARY_DYNAMIC,
+                POSITION_ENCODING_ROTARY_YARN,
+                POSITION_ENCODING_ROTARY_LONGROPE,
+                POSITION_ENCODING_ROTARY_LLAMA3,
                 POSITION_ENCODING_NONE,
                 POSITION_ENCODING_FIRE,
                 POSITION_ENCODING_COUPLED_REL_BIAS,

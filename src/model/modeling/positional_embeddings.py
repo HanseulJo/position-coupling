@@ -2,16 +2,27 @@ import math
 import torch
 from torch import nn
 from torch.nn import functional as F
+from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
+import logging
+
+logger = logging.getLogger(__name__)
 
 POSITION_ENCODING_REL_T5_BIAS = "t5_relative_bias"
 POSITION_ENCODING_REL_TRANSFORMER_XL = "transformer_xl_relative_encoding"
-POSITION_ENCODING_ROTARY = "rotary"
-POSITION_ENCODING_ROTARY_RERUN = "rotary_rerun"
-POSITION_ENCODING_ROTARY_NEW = "new_rotary"
+POSITION_ENCODING_ROTARY_OLD = "rotary_old"
+POSITION_ENCODING_ROTARY_NEW = "rotary_new"
+POSITION_ENCODING_ROTARY_DEFAULT = "rotary_default"
+POSITION_ENCODING_ROTARY_DEFAULT_HIROPE = "rotary_default_hirope"
+POSITION_ENCODING_ROTARY_DEFAULT_MULTIROPE = "rotary_default_multirope"
+POSITION_ENCODING_ROTARY_LINEAR = "rotary_linear"
+POSITION_ENCODING_ROTARY_DYNAMIC = "rotary_dynamic"
+POSITION_ENCODING_ROTARY_YARN = "rotary_yarn"
+POSITION_ENCODING_ROTARY_LONGROPE = "rotary_longrope"
+POSITION_ENCODING_ROTARY_LLAMA3 = "rotary_llama3"
 POSITION_ENCODING_ABS_LEARNED = "abs_learned"
 POSITION_ENCODING_ABS_SINUSOID = "abs_sinusoid"
-POSITION_ENCODING_ALiBi = "alibi"
-POSITION_ENCODING_ALiBi_LEARNED = "alibi_learned"
+POSITION_ENCODING_ALIBI = "alibi"
+POSITION_ENCODING_ALIBI_LEARNED = "alibi_learned"
 POSITION_ENCODING_NONE = "none"
 POSITION_ENCODING_FIRE = "fire"
 POSITION_ENCODING_COUPLED_REL_BIAS = "coupled_relative_bias"
@@ -39,7 +50,7 @@ def rotate_every_two(x):
     return x.flatten(-2)  # in einsum notation: rearrange(x, '... d j -> ... (d j)')
 
 
-def apply_rotary_pos_emb(x, sincos, offset=0):
+def apply_rotary_pos_emb_old(x, sincos, offset=0):
     sin, cos = map(
         lambda t: t[None, offset : x.shape[1] + offset, None, :].repeat_interleave(
             2, 3
@@ -115,6 +126,150 @@ class FixedRotaryPositionalEmbedding(nn.Module):
 
     def forward(self, position_ids: torch.Tensor):
         return self.embed(position_ids.long())
+    
+
+
+def rotate_half(x):
+    """Brought from `transformers.models.llama`.
+    Rotates half the hidden dims of the input.
+    """
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2 :]
+    return torch.cat((-x2, x1), dim=-1)
+
+
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
+    """Brought from `transformers.models.llama`.
+    Applies Rotary Position Embedding to the query and key tensors.
+
+    Args:
+        q (`torch.Tensor`): The query tensor.
+        k (`torch.Tensor`): The key tensor.
+        cos (`torch.Tensor`): The cosine part of the rotary embedding.
+        sin (`torch.Tensor`): The sine part of the rotary embedding.
+        position_ids (`torch.Tensor`, *optional*):
+            Deprecated and unused.
+        unsqueeze_dim (`int`, *optional*, defaults to 1):
+            The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
+            sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
+            that cos[position_ids] and sin[position_ids] have the shape [batch_size, seq_len, head_dim]. Then, if q and
+            k have the shape [batch_size, heads, seq_len, head_dim], then setting unsqueeze_dim=1 makes
+            cos[position_ids] and sin[position_ids] broadcastable to the shapes of q and k. Similarly, if q and k have
+            the shape [batch_size, seq_len, heads, head_dim], then set unsqueeze_dim=2.
+    Returns:
+        `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
+    """
+    cos = cos.unsqueeze(unsqueeze_dim)
+    sin = sin.unsqueeze(unsqueeze_dim)
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+    return q_embed, k_embed
+
+def get_inv_freq_for_hierarchical_rope(inv_freq, d_positions, config):
+    division_ratios = list(getattr(config, 'division_ratios', [(i+1)/d_positions for i in range(d_positions)]))
+    rotary_dim_half = inv_freq.shape[0]
+    div = [0] + [round(ratio * rotary_dim_half) for ratio in division_ratios]
+    inv_freq = torch.block_diag(*(inv_freq[a:b] for a, b in zip(div[:-1], div[1:])))
+    return inv_freq
+
+def get_inv_freq_for_multidimensional_rope(inv_freq, d_positions, config):
+    division_ratios = list(getattr(config, 'division_ratios', [(i+1)/d_positions for i in range(d_positions)]))
+    rotary_dim_half = inv_freq.shape[0]
+    div = [0] + [round(ratio * rotary_dim_half) for ratio in division_ratios]
+    partitioned = [inv_freq[a:b] for a, b in zip(div[:-1], div[1:])]
+    inv_freq_list = []
+    for _ in range(d_positions):
+        inv_freq_list.append(torch.cat(partitioned))
+        partitioned = partitioned[-1:] + partitioned[:-1]  # cyclic rotation of partitioned chunks
+    inv_freq = torch.stack(inv_freq_list)
+    return inv_freq
+
+ROPE_MULTIPOS_FUNCTIONS = {
+    'hirope': get_inv_freq_for_hierarchical_rope,
+    'multirope': get_inv_freq_for_multidimensional_rope
+}
+
+class RotaryEmbedding(nn.Module):
+    """Brought from `transformers.models.llama.LlamaRotaryEmbedding`."""
+    def __init__(
+        self,
+        rope_type="default",
+        d_positions=None,
+        config=None,
+    ):
+        super().__init__()
+        if len(rope_type.split('_')) == 2:
+            self.rope_type, self.multipos_type = rope_type.split('_')
+        else:
+            self.rope_type, self.multipos_type = rope_type, None
+        self.d_positions = d_positions
+        self.max_seq_len_cached = config.n_positions
+        self.original_max_seq_len = config.n_positions
+
+        self.config = config
+        self.rope_init_fn = ROPE_INIT_FUNCTIONS[self.rope_type]
+
+        inv_freq, self.attention_scaling = self.rope_init_fn(self.config)
+
+        if self.d_positions is not None and self.multipos_type is not None:
+            self.rope_multipos_fn = ROPE_MULTIPOS_FUNCTIONS[self.multipos_type]
+            inv_freq = self.rope_multipos_fn(inv_freq, self.d_positions, config)
+
+        self.register_buffer("inv_freq", inv_freq, persistent=False)  # (rope_dim,) where rope_dim = int(config.head_dim * config.partial_rotary_factor)
+        self.original_inv_freq = self.inv_freq
+
+    def _dynamic_frequency_update(self, position_ids, device):
+        """
+        dynamic RoPE layers should recompute `inv_freq` in the following situations:
+        1 - growing beyond the cached sequence length (allow scaling)
+        2 - the current sequence length is in the original scale (avoid losing precision with small sequences)
+        """
+        seq_len = torch.max(position_ids) + 1
+        if seq_len > self.max_seq_len_cached:  # growth
+            inv_freq, self.attention_scaling = self.rope_init_fn(
+                self.config, device, seq_len=seq_len
+            )
+            if self.d_positions is not None and self.multipos_type is not None:
+                self.rope_multipos_fn = ROPE_MULTIPOS_FUNCTIONS[self.multipos_type]
+                inv_freq = self.rope_multipos_fn(inv_freq, self.d_positions, self.config)
+            self.register_buffer("inv_freq", inv_freq, persistent=False)  # TODO joao: may break with compilation
+            self.max_seq_len_cached = seq_len
+
+        if seq_len < self.original_max_seq_len and self.max_seq_len_cached > self.original_max_seq_len:  # reset
+            self.register_buffer("inv_freq", self.original_inv_freq, persistent=False)
+            self.max_seq_len_cached = self.original_max_seq_len
+
+    @torch.no_grad()
+    def forward(self, position_ids):
+        device = position_ids.device
+        if "dynamic" in self.rope_type:
+            self._dynamic_frequency_update(position_ids, device=device)
+
+        # Core RoPE block
+        batchsize = position_ids.shape[-2]
+        if self.d_positions is None:
+            inv_freq_expanded = self.inv_freq[None, :, None].float().to(device).expand(batchsize, -1, 1)
+            position_ids_expanded = position_ids[:, None, :].float()
+        else:
+            inv_freq_expanded = self.inv_freq[:, None, :, None].float().to(device).expand(-1, batchsize, -1, 1)
+            position_ids_expanded = position_ids[:, :, None, :].float()
+        # Force float32 (see https://github.com/huggingface/transformers/pull/29285)
+        device_type = device.type
+        device_type = device_type if isinstance(device_type, str) and device_type != "mps" else "cpu"
+        with torch.autocast(device_type=device_type, enabled=False):
+            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(-2, -1)  # outer product
+            if self.d_positions is not None:
+                assert freqs.ndim == 4
+                freqs = freqs.sum(0)
+            emb = torch.cat((freqs, freqs), dim=-1)
+            cos = emb.cos()
+            sin = emb.sin()
+
+        # Advanced RoPE types (e.g. yarn) apply a post-processing scaling factor, equivalent to scaling attention
+        cos = cos * self.attention_scaling
+        sin = sin * self.attention_scaling
+
+        return cos, sin
     
 
 def build_alibi_tensor(

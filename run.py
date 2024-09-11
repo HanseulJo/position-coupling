@@ -162,6 +162,7 @@ def run(args):
     for epoch in range(1, n_epochs+1):
         if counter_training >= n_steps: break
         for phase in phases:
+            model.train(phase == 'train')
             if phase != 'train' and not (epoch%calc_acc_every_epochs == 0 or epoch == n_epochs): continue
             # Training Epoch
             pbar = tqdm(loader[phase])
