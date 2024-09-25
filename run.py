@@ -83,6 +83,7 @@ def run(args):
     if "IndexHints" in cfg.task.train.dataset_cls:
         id_index_hint_begin = tokenizer.token_to_id('10')
         id_index_hint_end = tokenizer.token_to_id(str(int(cfg.task.max_position)+9))
+    id_0 = tokenizer.token_to_id('0')
 
     # Random seed for data
     set_seed(seed=cfg.seed_data, device_type=device_type)
@@ -96,6 +97,8 @@ def run(args):
 
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
+    if getattr(cfg.model, 'compile', True):
+        model = torch.compile(model)  # compile!
     if getattr(cfg.model, 'd_positions', 1) == 1:
         model_summary = torchinfo.summary(model, (100,), batch_dim=0, dtypes=[torch.long], depth=5)
     else:
@@ -205,7 +208,6 @@ def run(args):
                     if not use_wandb and batch_idx == 0:
                         logits = model_output.logits
                         pred = torch.argmax(logits, dim=-1)
-                        id_0 = tokenizer.token_to_id('0')
                         d_positions = getattr(cfg.model, 'd_positions', None)
                         print(phase.upper())
                         if d_positions is None:

@@ -128,11 +128,16 @@ class CustomT5Attention(T5Attention):
             self.log_scale_base = getattr(config, 'logarithmic_rel_bias_scale_base', None)
             if self.position_dim is None:
                 self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
+                self.relative_attention_bias.weight.data.normal_(mean=0.0, std=self.factor * ((self.d_model * self.key_value_proj_dim) ** -0.5))
             elif getattr(config, 'share_pe', False):
                 self.relative_attention_bias = nn.ModuleList([nn.Embedding(self.relative_attention_num_buckets, self.n_heads)] * self.position_dim)
+                for module in self.relative_attention_bias:
+                    module.weight.data.normal_(mean=0.0, std=self.factor * ((self.d_model * self.key_value_proj_dim) ** -0.5))
             else:
                 self.relative_attention_bias = nn.ModuleList([nn.Embedding(self.relative_attention_num_buckets, self.n_heads) for _ in range(self.position_dim)])
-         
+                for module in self.relative_attention_bias:
+                    module.weight.data.normal_(mean=0.0, std=self.factor * ((self.d_model * self.key_value_proj_dim) ** -0.5))
+
         elif self.position_encoding_type == POSITION_ENCODING_REL_TRANSFORMER_XL:
             self.r_r_bias = nn.Parameter(torch.FloatTensor(self.n_heads, self.d_head))
             nn.init.normal_(
@@ -841,7 +846,7 @@ class CustomT5Stack(T5Stack):
             rotary_dim = int(config.d_kv * 0.25)
             self.rotary_embedding = FixedRotaryPositionalEmbedding(rotary_dim, max_position=4096)
 
-        elif self.position_encoding_type.split('_')[1] in ROPE_INIT_FUNCTIONS:
+        elif self.position_encoding_type.startswith('rotary_') and self.position_encoding_type.split('_')[1] in ROPE_INIT_FUNCTIONS:
             rope_type = "_".join(self.position_encoding_type.split('_')[1:])
             self.rotary_embedding = RotaryEmbedding(rope_type=rope_type, d_positions=self.position_dim, config=config)
             self.pid_multiplier = getattr(config, 'pid_multiplier', None)

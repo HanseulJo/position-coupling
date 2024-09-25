@@ -44,12 +44,12 @@ def evaluate(args):
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
         device = torch.device(cfg.device)
-        device_type = 'gpu'
+        device_type = 'cuda'
 
     # Data type
     dtype = 'bfloat16' if torch.cuda.is_bf16_supported() else 'float16'
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
-    ctx = torch.cuda.amp.autocast(dtype=ptdtype) if device_type == 'gpu' else nullcontext()
+    ctx = torch.cuda.amp.autocast(dtype=ptdtype) if device_type == 'cuda' else nullcontext()
     
     # Training Misc
     model_name = cfg.model.model_name
@@ -67,6 +67,8 @@ def evaluate(args):
     
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
+    if getattr(cfg.model, 'compile', True):
+        model = torch.compile(model)
 
     # get pretrained model
     model_path = os.path.join(logging_path, f'last_{model_name}.pt')

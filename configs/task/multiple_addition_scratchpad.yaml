@@ -1,9 +1,10 @@
 symbol: +
-reverse_input: True
+reverse_input: False
 reverse_output: True
 reverse_output_order: False
-padding: False
+padding: True
 pad_token: '0'
+scratchpad_start_with_zeros: True
 
 vocab: 0 1 2 3 4 5 6 7 8 9 + > =
 eos: True
@@ -15,7 +16,9 @@ train:
   max_n_digits: 10
   min_n_operands: 2
   max_n_operands: 5
-  n_data: 1000000
+  n_data: 500000
+  sampling_method_n_digits: partially_uniform
+  threshold_partially_uniform: 0.5
 
 val:
   dataset_cls: MultipleAdditionScratchPadDataset
@@ -23,7 +26,8 @@ val:
   max_n_digits: 10
   min_n_operands: 2
   max_n_operands: 5
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
 
 val_many_digits:
   dataset_cls: MultipleAdditionScratchPadDataset
@@ -31,7 +35,8 @@ val_many_digits:
   max_n_digits: 10
   min_n_operands: 6
   max_n_operands: 7
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
 
 val_many_operands:
   dataset_cls: MultipleAdditionScratchPadDataset
@@ -39,12 +44,14 @@ val_many_operands:
   max_n_digits: 15
   min_n_operands: 2
   max_n_operands: 5
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
 
 val_long:
   dataset_cls: MultipleAdditionScratchPadDataset
   min_n_digits: 11
-  max_n_digits: 20
+  max_n_digits: 15
   min_n_operands: 6
   max_n_operands: 7
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform

@@ -14,9 +14,9 @@ position_encoding_type: abs_learned
 # "none"
 
 ## Dimensions ##
-d_model: 512
-d_kv: 64
-d_ff: 3072
+d_model: 1024
+d_kv: 128
+d_ff: 2048
 num_layers: 6
 num_decoder_layers: null
 num_heads: 8
@@ -44,7 +44,7 @@ normalization_layer: rmsnorm  # layernorm, t5layernorm, rmsnorm
 layer_norm_position: pre_post  # pre, post, pre_post
 layer_norm_epsilon: 0.000001
 initializer_factor: 1.0
-feed_forward_proj: gated-relu  # relu, gelu, gated-relu, gated-gelu
+feed_forward_proj: gated-gelu  # relu, gelu, gated-relu, gated-gelu
 is_encoder_decoder: False
 use_cache: True
 
@@ -57,5 +57,6 @@ do_sample: False
 num_beams: 1
 # early_stopping: False
 
-## Save model or not ##
+## Save/Compile model or not ##
 save: False
+compile: True

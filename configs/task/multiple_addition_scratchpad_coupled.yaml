@@ -1,9 +1,10 @@
 symbol: +
-reverse_input: True
+reverse_input: False
 reverse_output: True
 reverse_output_order: False
-padding: False
+padding: True
 pad_token: '0'
+scratchpad_start_with_zeros: True
 max_position_digits: 30
 max_position_operands: 10
 
@@ -17,7 +18,9 @@ train:
   max_n_digits: 10
   min_n_operands: 2
   max_n_operands: 5
-  n_data: 1000000
+  n_data: 500000
+  sampling_method_n_digits: partially_uniform
+  threshold_partially_uniform: 0.5
   randomize: True
 
 val:
@@ -26,7 +29,8 @@ val:
   max_n_digits: 10
   min_n_operands: 2
   max_n_operands: 5
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
   randomize: False
 
 val_many_digits:
@@ -35,7 +39,8 @@ val_many_digits:
   max_n_digits: 10
   min_n_operands: 6
   max_n_operands: 7
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
   randomize: False
 
 val_many_operands:
@@ -44,7 +49,8 @@ val_many_operands:
   max_n_digits: 15
   min_n_operands: 2
   max_n_operands: 5
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
   randomize: False
 
 val_long:
@@ -53,5 +59,6 @@ val_long:
   max_n_digits: 15
   min_n_operands: 6
   max_n_operands: 7
-  n_data: 10000
+  n_data: 1000
+  sampling_method_n_digits: uniform
   randomize: False
