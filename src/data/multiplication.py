@@ -137,12 +137,14 @@ class NxMMultiplicationDatasetWithCoupledPositions(NxMMultiplicationDataset):
 class MultiplicationDataset(ArithmeticDataset):                                                                       
     def __init__(self,
             n_data,
-            min_n_digits,
-            max_n_digits,
+            min_n_digits_1=1,
+            max_n_digits_1=3,
+            min_n_digits_2=1,
+            max_n_digits_2=3,
             reverse_input=False,
             reverse_output=True,
             padding=True,
-            pad_token=SpecialToken.pad,
+            pad_token='0',
             **kwargs
         ):
         super().__init__()
@@ -152,13 +154,13 @@ class MultiplicationDataset(ArithmeticDataset):
         self.labels = []
         self.pad_token = pad_token
         for i in trange(n_data):
-            if len(self.inputs) >= n_data: break
             numbers = []
             # uniform sampling of n_digits of two numbers
-            n_digits_arr = torch.randint(low=min_n_digits, 
-                                        high=max_n_digits+1, size=(2, ))
-            for i in range(2):
-                n_digits = n_digits_arr[i].item()
+            n_digits_arr = [
+                torch.randint(low=min_n_digits_1, high=max_n_digits_1+1, size=(1, )).item(),
+                torch.randint(low=min_n_digits_2, high=max_n_digits_2+1, size=(1, )).item()
+            ]
+            for n_digits in n_digits_arr:
                 # uniform sampling of a number
                 if n_digits == 1:
                     num = torch.randint(0, 10, size=(1,)).item()
@@ -168,11 +170,17 @@ class MultiplicationDataset(ArithmeticDataset):
                 numbers.append(int(num))
             a, b = numbers
             result = a * b
-            max_len = max(len(str(a)),len(str(b)))
-            self.inputs.append(f"{'P'*(max_len-len(str(a)))}{a}*{'P'*(max_len-len(str(b)))}{b}" 
-                               if padding else f"{a}+{b}")
-            self.labels.append(f"{'P'*(max_len+1-len(str(result)))}{result}" 
-                               if padding else f"{result}")
+            max_len = len(str(a)) + len(str(b))
+            _inputs = [str(a), str(b)]
+            if reverse_input: _inputs = [x[::-1] for x in _inputs]
+            if padding:
+                _labels = f"{'P'*(max_len-len(str(result)))}{result}"
+            else:
+                _labels = str(result)
+            if reverse_output: _labels = _labels[::-1]
+            _inputs = "*".join(_inputs)
+            self.inputs.append(_inputs)
+            self.labels.append(_labels)
 
 
 #########################################################
@@ -181,8 +189,10 @@ class MultiplicationDataset(ArithmeticDataset):
 class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):                                                                       
     def __init__(self,
             n_data,
-            min_n_digits,
-            max_n_digits,
+            min_n_digits_1=1,
+            max_n_digits_1=3,
+            min_n_digits_2=1,
+            max_n_digits_2=3,
             reverse_input=False,
             reverse_output=False,
             padding=False,
@@ -193,20 +203,18 @@ class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):
         ):
         self.randomize = randomize
         self.max_position = max_position
-        super().__init__(n_data, min_n_digits, max_n_digits, 
+        super().__init__(n_data, min_n_digits_1, max_n_digits_1, min_n_digits_2, max_n_digits_2, 
             reverse_input, reverse_output, padding, pad_token, **kwargs)
 
     def __getitem__(self, index):
         inputs = self.inputs[index]
         labels = self.labels[index]
-        a, b = inputs.split('*')
-        max_len = max(len(a),len(b))
-        start = 1 if not self.randomize else torch.randint(1, self.max_position-max_len, size=(1,)).item()
-        end = start + max_len + 1
-        input_positions = list(range(end-len(a), end+1)) + list(range(end-len(b), end+1))
-        label_positions = list(range(end-len(labels), end))
-        if self.reverse_output:
-            label_positions = label_positions[::-1]
+        numbers = inputs.split('*')
+        start = 1 if not self.randomize else torch.randint(1, self.max_position-len(labels)+1, size=(1,)).item()
+        input_positions = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_input else -1] for a in numbers), start=[])
+        input_positions = input_positions[1:] if self.reverse_input else input_positions[:-1]
+        label_positions = list(range(start, start+len(labels)+1))[::1 if self.reverse_output else -1]
+        if not self.reverse_output: label_positions = label_positions[-1:] + label_positions[:-1]
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
         labels = " ".join(labels).replace('P', str(self.pad_token))

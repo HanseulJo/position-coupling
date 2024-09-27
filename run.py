@@ -99,10 +99,7 @@ def run(args):
     model = build_model_from_scratch(cfg, tokenizer, device)
     if getattr(cfg.model, 'compile', True):
         model = torch.compile(model)  # compile!
-    if getattr(cfg.model, 'd_positions', 1) == 1:
-        model_summary = torchinfo.summary(model, (100,), batch_dim=0, dtypes=[torch.long], depth=5)
-    else:
-        model_summary = torchinfo.summary(model, depth=5)
+    model_summary = torchinfo.summary(model, depth=5)
     dict_cfg['total_params'] = model_summary.total_params
     dict_cfg['trainable_params'] = model_summary.trainable_params
 
@@ -255,17 +252,17 @@ def run(args):
                 instancewise_accuracy_avg = instancewise_correct_sum.item()/len(dataset[phase])
                 tokenwise_accuracies[phase].append(tokenwise_accuracy_avg)
                 instancewise_accuracies[phase].append(instancewise_accuracy_avg)
-                if getattr(cfg.model, 'd_positions', None) is None:
-                    _, _, _, example = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=False)
-                    print(example)
+                # if getattr(cfg.model, 'd_positions', None) is None:
+                #     _, _, _, example = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=False)
+                #     print(example)
             # W&B
             if use_wandb:
                 log_data = {'loss': loss_avg}
                 if epoch % calc_acc_every_epochs == 0:
                     log_data['tokenwise_accuracy'] = tokenwise_accuracy_avg
                     log_data['instancewise_accuracy'] = instancewise_accuracy_avg
-                    if getattr(cfg.model, 'd_positions', None) is None: 
-                        log_data['example'] = example
+                    # if getattr(cfg.model, 'd_positions', None) is None: 
+                    #     log_data['example'] = example
                 log_data = {f"{phase}/{k}": v for k, v in log_data.items()}
                 if phase == 'train':
                     log_data['misc/learning_rate'] = scheduler.get_last_lr()[0]
@@ -318,11 +315,11 @@ def run(args):
     
     # Finish W&B
     if use_wandb:
-        if getattr(cfg.model, 'd_positions', None) is None:
-            for phase in phases:
-                input_str, label_str, decoded, _ = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=not use_wandb)
-                text_table[phase].add_data(input_str, label_str, decoded)
-                run.log({f"{phase}_text_table": text_table[phase]})
+        # if getattr(cfg.model, 'd_positions', None) is None:
+        #     for phase in phases:
+        #         input_str, label_str, decoded, _ = print_example(cfg, ctx, epoch, phase, tokenizer, dataset, model, verbose=not use_wandb)
+        #         text_table[phase].add_data(input_str, label_str, decoded)
+        #         run.log({f"{phase}_text_table": text_table[phase]})
 
         wandb.finish()
     

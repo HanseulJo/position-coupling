@@ -1,31 +1,56 @@
 symbol: +
-commutative: False
+reverse_input: False
 reverse_output: True
-eos: True
-bos_to_eos: True
+reverse_output_order: False
 padding: True
 pad_token: '0'
+
+vocab: 0 1 2 3 4 5 6 7 8 9 + =
+eos: True
+bos_to_eos: True
 
 train:
   dataset_cls: MultipleAdditionDataset
   min_n_digits: 1
-  max_n_digits: 5
-  n_data: 100000
-  min_n_operands: 3
-  max_n_operands: 3
+  max_n_digits: 10
+  min_n_operands: 2
+  max_n_operands: 5
+  n_data: 500000
+  sampling_method_n_digits: partially_uniform
+  threshold_partially_uniform: 0.5
 
 val:
   dataset_cls: MultipleAdditionDataset
-  min_n_digits: 5
-  max_n_digits: 5
-  n_data: 10000
-  min_n_operands: 3
-  max_n_operands: 3
+  min_n_digits: 1
+  max_n_digits: 10
+  min_n_operands: 2
+  max_n_operands: 5
+  n_data: 1000
+  sampling_method_n_digits: uniform
+
+val_many_digits:
+  dataset_cls: MultipleAdditionDataset
+  min_n_digits: 1
+  max_n_digits: 10
+  min_n_operands: 6
+  max_n_operands: 7
+  n_data: 1000
+  sampling_method_n_digits: uniform
+
+val_many_operands:
+  dataset_cls: MultipleAdditionDataset
+  min_n_digits: 11
+  max_n_digits: 15
+  min_n_operands: 2
+  max_n_operands: 5
+  n_data: 1000
+  sampling_method_n_digits: uniform
 
 val_long:
   dataset_cls: MultipleAdditionDataset
-  min_n_digits: 10
-  max_n_digits: 10
-  n_data: 10000
-  min_n_operands: 3
-  max_n_operands: 3
+  min_n_digits: 11
+  max_n_digits: 15
+  min_n_operands: 6
+  max_n_operands: 7
+  n_data: 1000
+  sampling_method_n_digits: uniform

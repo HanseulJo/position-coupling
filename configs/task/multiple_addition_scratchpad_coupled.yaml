@@ -5,8 +5,8 @@ reverse_output_order: False
 padding: True
 pad_token: '0'
 scratchpad_start_with_zeros: True
-max_position_digits: 30
-max_position_operands: 10
+max_position_digits: 40
+max_position_operands: 40
 
 vocab: 0 1 2 3 4 5 6 7 8 9 + > =
 eos: True

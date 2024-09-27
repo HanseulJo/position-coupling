@@ -158,8 +158,9 @@ class CustomT5Attention(T5Attention):
             self.rotary_dim = getattr(config, "rotary_dim", self.d_head//4)
 
         elif self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
+            self.rotary_dim = getattr(config, "rotary_dim", self.d_head)
             # We hardcode the rotary dim to 25 percent of the head dim
-            self.rotary_dim = self.d_head // 4
+            # self.rotary_dim = self.d_head // 4
 
         elif self.position_encoding_type.startswith('rotary_'):
             rotary_factor = getattr(config, "partial_rotary_factor", getattr(config, 'rotary_factor', 1.0))
@@ -843,8 +844,10 @@ class CustomT5Stack(T5Stack):
             # Rotary dim is X percentage of d_head
             # Right now, we just hardcode X here following:
             # https://github.com/huggingface/transformers/blob/v4.26.0/src/transformers/models/gpt_neox/configuration_gpt_neox.py
-            rotary_dim = int(config.d_kv * 0.25)
-            self.rotary_embedding = FixedRotaryPositionalEmbedding(rotary_dim, max_position=4096)
+            # rotary_dim = int(config.d_kv * 0.25)
+            rotary_dim = getattr(config, "rotary_dim", config.d_kv)
+            rotary_base = getattr(config, "rotary_base", 10000)
+            self.rotary_embedding = FixedRotaryPositionalEmbedding(rotary_dim, rotary_base, max_position=4096)
 
         elif self.position_encoding_type.startswith('rotary_') and self.position_encoding_type.split('_')[1] in ROPE_INIT_FUNCTIONS:
             rope_type = "_".join(self.position_encoding_type.split('_')[1:])
@@ -1054,7 +1057,7 @@ class CustomT5Stack(T5Stack):
                 position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
             
             if self.position_encoding_type.startswith('rotary_'):
-                if self.training and self.pid_multiplier is not None:
+                if self.training and getattr(self, 'pid_multiplier', None) is not None:
                     position_ids *= torch.randint(1, int(self.pid_multiplier)+1, (1,)).item()
                 sinusoidal_pos = self.rotary_embedding(position_ids)  # sinusoidal_pos == (cos, sin)
                 position_bias = sinusoidal_pos

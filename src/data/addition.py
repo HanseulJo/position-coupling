@@ -303,87 +303,137 @@ class AdditionDatasetWithIndexHints(AdditionDataset):
 #########################################################
 
 
-class MultiplicationDataset(ArithmeticDataset):                                                                       
+class MultipleAdditionDataset(ArithmeticDataset):
     def __init__(self,
             n_data,
-            min_n_digits_1=1,
-            max_n_digits_1=3,
-            min_n_digits_2=1,
-            max_n_digits_2=3,
+            min_n_digits,
+            max_n_digits,
+            min_n_operands=3,
+            max_n_operands=3,
             reverse_input=False,
             reverse_output=True,
             padding=True,
             pad_token='0',
+            sampling_method_n_digits='uniform',
+            threshold_partially_uniform=None,
             **kwargs
         ):
-        super().__init__()
+        self.min_n_operands = min_n_operands
+        self.max_n_operands = max_n_operands
         self.reverse_input = reverse_input
         self.reverse_output = reverse_output
+        self.pad_token = pad_token
         self.inputs = []
         self.labels = []
-        self.pad_token = pad_token
         for i in trange(n_data):
             numbers = []
-            # uniform sampling of n_digits of two numbers
-            n_digits_arr = [
-                torch.randint(low=min_n_digits_1, high=max_n_digits_1+1, size=(1, )).item(),
-                torch.randint(low=min_n_digits_2, high=max_n_digits_2+1, size=(1, )).item()
-            ]
+            # uniform sampling of n_operands 
+            n_operands = torch.randint(low=min_n_operands, high=max_n_operands+1, size=(1, )).item()
+            
+            if sampling_method_n_digits == 'uniform':
+                # uniform sampling of n_digits
+                n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(n_operands, ))
+            elif sampling_method_n_digits == 'uniform_fixed_max':
+                # uniform sampling of n_digits
+                n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(n_operands, ))
+                change_idx = torch.randint(0, n_operands, size=(1,)).item()
+                n_digits_arr[change_idx] = max_n_digits
+            elif sampling_method_n_digits == 'partially_uniform':
+                if torch.rand(1) < threshold_partially_uniform:
+                    n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(n_operands, ))
+                else:
+                    # with probability 1-threshold_partially_uniform, match the length of every operands
+                    n_digits_arr = [torch.randint(low=min_n_digits, high=max_n_digits+1, size=(1, )).item()] * n_operands
+            elif sampling_method_n_digits == 'independent':
+                n_digits_arr = [torch.randint(low=min_n_digits, high=max_n_digits+1, size=(1, )).item()] * n_operands
+            else:
+                raise ValueError(f'wrong sampling_method_n_digits: {sampling_method_n_digits}')
+
             for n_digits in n_digits_arr:
                 # uniform sampling of a number
-                if n_digits == 1:
-                    num = torch.randint(0, 10, size=(1,)).item()
-                else:
-                    num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
+                if sampling_method_n_digits == 'independent':
+                    num_arr = torch.randint(0, 10, size=(n_digits,)).tolist()
                     num = int(''.join(map(str, num_arr)))
+                else:
+                    if n_digits == 1:
+                        num = torch.randint(0, 10, size=(1,)).item()
+                    else:
+                        num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
+                        num = int(''.join(map(str, num_arr)))
                 numbers.append(int(num))
-            a, b = numbers
-            result = a * b
-            max_len = len(str(a)) + len(str(b))
-            _inputs = [str(a), str(b)]
-            if reverse_input: _inputs = [x[::-1] for x in _inputs]
-            if padding:
-                _labels = f"{'P'*(max_len-len(str(result)))}{result}"
-            else:
+            
+            result = sum(numbers)
+            max_len = max(len(str(a)) for a in numbers)
+            overflow = len(str(int('9'*max_len)*n_operands))
+            if padding: 
+                _inputs = [f"{'P'*(overflow-len(str(a)))}{a}" for a in numbers]
+                _labels = f"{'P'*(overflow-len(str(result)))}{result}"
+            else: 
+                _inputs = list(map(str, numbers))
                 _labels = str(result)
+            if reverse_input: _inputs = [x[::-1] for x in _inputs]
             if reverse_output: _labels = _labels[::-1]
-            _inputs = "*".join(_inputs)
+            _inputs = '+'.join(_inputs)
             self.inputs.append(_inputs)
             self.labels.append(_labels)
 
 
 #########################################################
-    
 
-class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):                                                                       
+
+class MultipleAdditionDatasetWithCoupledPositions(MultipleAdditionDataset):                                                                       
     def __init__(self,
             n_data,
-            min_n_digits_1=1,
-            max_n_digits_1=3,
-            min_n_digits_2=1,
-            max_n_digits_2=3,
+            min_n_digits,
+            max_n_digits,
+            min_n_operands=3,
+            max_n_operands=3,
             reverse_input=False,
-            reverse_output=False,
-            padding=False,
+            reverse_output=True,
+            padding=True,
             pad_token='0',
+            sampling_method_n_digits='uniform',
+            threshold_partially_uniform=None,
             randomize=True,
-            max_position=22,  # max_pos >= len(operand)+2 
+            max_position=20,
+            vanilla=False,
             **kwargs
         ):
         self.randomize = randomize
         self.max_position = max_position
-        super().__init__(n_data, min_n_digits_1, max_n_digits_1, min_n_digits_2, max_n_digits_2, 
-            reverse_input, reverse_output, padding, pad_token, **kwargs)
+        self.vanilla = vanilla
+        super().__init__(
+            n_data=n_data, 
+            min_n_digits=min_n_digits,
+            max_n_digits=max_n_digits,
+            min_n_operands=min_n_operands,
+            max_n_operands=max_n_operands,
+            reverse_input=reverse_input,
+            reverse_output=reverse_output, 
+            padding=padding,
+            pad_token=pad_token,
+            sampling_method_n_digits=sampling_method_n_digits,
+            threshold_partially_uniform=threshold_partially_uniform,
+            **kwargs
+        )
 
     def __getitem__(self, index):
         inputs = self.inputs[index]
         labels = self.labels[index]
-        numbers = inputs.split('*')
-        start = 1 if not self.randomize else torch.randint(1, self.max_position-len(labels)+1, size=(1,)).item()
-        input_positions = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_input else -1] for a in numbers), start=[])
-        input_positions = input_positions[1:] if self.reverse_input else input_positions[:-1]
-        label_positions = list(range(start, start+len(labels)+1))[::1 if self.reverse_output else -1]
-        if not self.reverse_output: label_positions = label_positions[-1:] + label_positions[:-1]
+        numbers = inputs.split('+')
+        max_len = max(map(len, numbers + [labels]))
+        start_ = 1
+        if self.vanilla:
+            start = 1 if not self.randomize else torch.randint(1, self.max_position-len(inputs)-len(labels)+1, size=(1,)).item()
+            positions = list(range(start, start + len(inputs) + len(labels) + 1))
+            input_positions, label_positions = positions[:len(inputs)], positions[len(inputs):]
+        else:
+            # default
+            start = start_ if not self.randomize else torch.randint(1, self.max_position-max_len+1, size=(1,)).item()
+            input_positions = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_input else -1] for a in numbers), start=[])
+            input_positions = input_positions[1:] if self.reverse_input else input_positions[:-1]
+            label_positions = list(range(start, start+len(labels)+1))[::1 if self.reverse_output else -1]
+            if not self.reverse_output: label_positions = label_positions[-1:] + label_positions[:-1]
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
         labels = " ".join(labels).replace('P', str(self.pad_token))
