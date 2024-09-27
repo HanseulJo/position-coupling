@@ -172,19 +172,19 @@ def evaluate(args):
                         tokenwise_correct_sum += tokenwise_correct.item()
                         num_tokens_sum += num_tokens.item()
                         instancewise_correct_sum += instancewise_correct.item()
-                        if n_digits==4:
-                            for _ in range(min(1, batchsize)):
-                                with open(os.path.join(logging_path, f'Operand{n_operands}.txt'), 'a' if batch_idx else 'w') as f:
-                                    print("Input     :", model_inputs['input_ids'][_].cpu().numpy() - id_0, file=f)
-                                    if 'position_ids' in model_inputs:
-                                        print("Position  :", model_inputs['position_ids'][:, _].cpu().numpy(), file=f)
-                                    if model_name in DECODER_BASED:
-                                        lab = model_inputs['labels'][_, 1:]
-                                        print("Prediction:", pred[_, :-1][lab != -100].cpu().numpy() - id_0, file=f)
-                                    else:
-                                        lab = model_inputs['labels'][_]
-                                        print("Prediction:", pred[_][lab != -100].cpu().numpy() - id_0, file=f)
-                                    print("Label     :", lab[lab != -100].cpu().numpy() - id_0, file=f)
+                        # if n_digits==4:
+                        #     for _ in range(min(1, batchsize)):
+                        #         with open(os.path.join(logging_path, f'Operand{n_operands}.txt'), 'a' if batch_idx else 'w') as f:
+                        #             print("Input     :", model_inputs['input_ids'][_].cpu().numpy() - id_0, file=f)
+                        #             if 'position_ids' in model_inputs:
+                        #                 print("Position  :", model_inputs['position_ids'][:, _].cpu().numpy(), file=f)
+                        #             if model_name in DECODER_BASED:
+                        #                 lab = model_inputs['labels'][_, 1:]
+                        #                 print("Prediction:", pred[_, :-1][lab != -100].cpu().numpy() - id_0, file=f)
+                        #             else:
+                        #                 lab = model_inputs['labels'][_]
+                        #                 print("Prediction:", pred[_][lab != -100].cpu().numpy() - id_0, file=f)
+                        #             print("Label     :", lab[lab != -100].cpu().numpy() - id_0, file=f)
                         pbar.set_description(f"Loss:{loss:.3g} | TokenAcc:{tokenwise_correct/num_tokens:.3g} | InstAcc:{instancewise_correct/batchsize:.3g}") 
                 
                 # Logging
@@ -216,7 +216,7 @@ def evaluate(args):
         'tokenwise_accuracies': tokenwise_accuracies[::-1],
         'instancewise_accuracies': instancewise_accuracies[::-1]
     }
-    with open(os.path.join(logging_path, f'performances_EVAL_{mode}_offset{pad_offset}.json'), 'w') as f:
+    with open(os.path.join(logging_path, f'performances_EVAL_{mode}.json'), 'w') as f:
         json.dump(perf_dict, f, indent=2)
 
     

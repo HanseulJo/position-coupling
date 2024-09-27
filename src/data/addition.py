@@ -128,7 +128,6 @@ class AdditionDataset(ArithmeticDataset):
             max_n_digits,
             reverse_input=False,
             reverse_output=False,
-            commutative=False,
             padding=False,
             pad_token=SpecialToken.pad,
             hard_carry=False,
@@ -145,7 +144,7 @@ class AdditionDataset(ArithmeticDataset):
             if hard_carry:
                 n_digits = torch.randint(low=min_n_digits,
                                         high=max_n_digits+1, size=(1,)).item()
-                a, b = generate_hard_carry_sum_pair(n_digits)
+                numbers = generate_hard_carry_sum_pair(n_digits)
             else:
                 numbers = []
                 # uniform sampling of n_digits of two numbers
@@ -163,12 +162,17 @@ class AdditionDataset(ArithmeticDataset):
                 a, b = numbers
             result = a + b
             max_len = max(len(str(a)),len(str(b)))
+            overflow = max_len + 1
 
-            _inputs = f"{'P'*(max_len-len(str(a)))}{a}+{'P'*(max_len-len(str(b)))}{b}" if padding else f"{a}+{b}"
-            _labels = f"{'P'*(max_len+1-len(str(result)))}{result}" if padding else f"{result}"
-            if commutative and a != b:
-                _inputs = f"{'P'*(max_len-len(str(b)))}{b}+{'P'*(max_len-len(str(a)))}{a}" if padding else f"{b}+{a}"
-                _labels = f"{'P'*(max_len+1-len(str(result)))}{result}" if padding else f"{result}"
+            if padding:
+                _inputs = [f"{'P'*(overflow-len(str(c)))}{c}" for c in numbers]
+                _labels = f"{'P'*(overflow-len(str(result)))}{result}"
+            else:
+                _inputs = list(map(str, numbers))
+                _labels = str(result)
+            if reverse_input: _inputs = [x[::-1] for x in _inputs]
+            if reverse_output: _labels = _labels[::-1]
+            _inputs = "+".join(_inputs)
             self.inputs.append(_inputs)
             self.labels.append(_labels)
 
@@ -183,7 +187,6 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
             max_n_digits,
             reverse_input=False,
             reverse_output=False,
-            commutative=False,
             padding=False,
             pad_token='0',
             hard_carry=False,
@@ -198,7 +201,7 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
         self.cyclic = cyclic
         self.vanilla = vanilla # not a coupled position; vanilla randomized APE
         super().__init__(n_data, min_n_digits, max_n_digits,
-            reverse_input, reverse_output, commutative, padding, pad_token,
+            reverse_input, reverse_output, padding, pad_token,
             hard_carry, **kwargs)
 
     def __getitem__(self, index):
@@ -225,11 +228,9 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
             input_positions = list(range(end-len(a), end+1)) + list(range(end-len(b), end+1))
             label_positions = list(range(end-len(labels), end))
         if self.reverse_input:
-            inputs = inputs[::-1]
             if not self.vanilla:
                 input_positions[:-1] = input_positions[:-1][::-1]
         if self.reverse_output:
-            labels = labels[::-1]
             if not self.vanilla:
                 label_positions = label_positions[::-1]
         # Put white spaces
@@ -247,7 +248,6 @@ class AdditionDatasetWithIndexHints(AdditionDataset):
             max_n_digits,
             reverse_input=False,
             reverse_output=False,
-            commutative=False,
             padding=False,
             pad_token='0',
             hard_carry=False,
@@ -259,7 +259,7 @@ class AdditionDatasetWithIndexHints(AdditionDataset):
         self.max_position = max_position
         self.padding = padding
         super().__init__(n_data, min_n_digits, max_n_digits,
-            reverse_input, reverse_output, commutative, padding, pad_token,
+            reverse_input, reverse_output, padding, pad_token,
             hard_carry, **kwargs)
         
     def __getitem__(self, index):
@@ -303,30 +303,32 @@ class AdditionDatasetWithIndexHints(AdditionDataset):
 #########################################################
 
 
-class MultipleAdditionDataset(ArithmeticDataset):
+class MultiplicationDataset(ArithmeticDataset):                                                                       
     def __init__(self,
             n_data,
-            min_n_digits,
-            max_n_digits,
-            min_n_operands=3,
-            max_n_operands=3,
-            reverse_output=False,
-            padding=False,
-            pad_token=SpecialToken.pad,
+            min_n_digits_1=1,
+            max_n_digits_1=3,
+            min_n_digits_2=1,
+            max_n_digits_2=3,
+            reverse_input=False,
+            reverse_output=True,
+            padding=True,
+            pad_token='0',
             **kwargs
         ):
-        self.min_n_operands = min_n_operands
-        self.max_n_operands = max_n_operands
+        super().__init__()
+        self.reverse_input = reverse_input
         self.reverse_output = reverse_output
-        self.pad_token = pad_token
         self.inputs = []
         self.labels = []
+        self.pad_token = pad_token
         for i in trange(n_data):
             numbers = []
-            # uniform sampling of n_operands 
-            n_operands = torch.randint(low=min_n_operands, high=max_n_operands+1, size=(1, )).item()
-            # uniform sampling of n_digits of numbers
-            n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(n_operands, ))
+            # uniform sampling of n_digits of two numbers
+            n_digits_arr = [
+                torch.randint(low=min_n_digits_1, high=max_n_digits_1+1, size=(1, )).item(),
+                torch.randint(low=min_n_digits_2, high=max_n_digits_2+1, size=(1, )).item()
+            ]
             for n_digits in n_digits_arr:
                 # uniform sampling of a number
                 if n_digits == 1:
@@ -335,72 +337,53 @@ class MultipleAdditionDataset(ArithmeticDataset):
                     num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
                     num = int(''.join(map(str, num_arr)))
                 numbers.append(int(num))
-            result = sum(numbers)
-            max_len = max(len(str(a)) for a in numbers)
-            overflow = len(str(int('9'*max_len)*n_operands)) - max_len
+            a, b = numbers
+            result = a * b
+            max_len = len(str(a)) + len(str(b))
+            _inputs = [str(a), str(b)]
+            if reverse_input: _inputs = [x[::-1] for x in _inputs]
             if padding:
-                _inputs = '+'.join(f"{'P'*(max_len-len(str(a)))}{a}" for a in numbers)
-                _labels = f"{'P'*(max_len+overflow-len(str(result)))}{result}"
+                _labels = f"{'P'*(max_len-len(str(result)))}{result}"
             else:
-                _inputs = '+'.join(map(str, numbers))
                 _labels = str(result)
+            if reverse_output: _labels = _labels[::-1]
+            _inputs = "*".join(_inputs)
             self.inputs.append(_inputs)
             self.labels.append(_labels)
 
 
 #########################################################
+    
 
-
-class MultipleAdditionDatasetWithCoupledPositions(MultipleAdditionDataset):                                                                       
+class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):                                                                       
     def __init__(self,
             n_data,
-            min_n_digits,
-            max_n_digits,
-            min_n_operands=3,
-            max_n_operands=3,
+            min_n_digits_1=1,
+            max_n_digits_1=3,
+            min_n_digits_2=1,
+            max_n_digits_2=3,
+            reverse_input=False,
             reverse_output=False,
             padding=False,
             pad_token='0',
             randomize=True,
-            max_position=20,
-            cyclic=False,
-            vanilla=False,
+            max_position=22,  # max_pos >= len(operand)+2 
             **kwargs
         ):
         self.randomize = randomize
         self.max_position = max_position
-        self.cyclic = cyclic
-        self.vanilla = vanilla
-        super().__init__(n_data, min_n_digits, max_n_digits,
-            min_n_operands, max_n_operands, reverse_output, padding, pad_token, **kwargs)
+        super().__init__(n_data, min_n_digits_1, max_n_digits_1, min_n_digits_2, max_n_digits_2, 
+            reverse_input, reverse_output, padding, pad_token, **kwargs)
 
     def __getitem__(self, index):
         inputs = self.inputs[index]
         labels = self.labels[index]
-        numbers = inputs.split('+')
-        max_len = max(map(len, numbers))
-        start_ = (self.max_position - (len(labels)+1)) // 2 + 1
-        if self.cyclic:
-            start = 1 if not self.randomize else torch.randint(1, self.max_position+1, size=(1,)).item()
-            end = start + max_len + 1
-            positions = list(range(1, self.max_position+1))
-            while len(positions) < end:
-                positions += list(range(1, self.max_position+1))
-            input_positions = sum([positions[end-len(a):end+1] for a in numbers], start=[])
-            label_positions = positions[end-len(labels):end]
-        elif self.vanilla:
-            start = 1 if not self.randomize else torch.randint(1, self.max_position-len(inputs)-len(labels)+1, size=(1,)).item()
-            positions = list(range(start, start + len(inputs) + len(labels) + 1))
-            input_positions, label_positions = positions[:len(inputs)], positions[len(inputs):]
-        else:
-            start = start_ if not self.randomize else torch.randint(1, self.max_position-max_len, size=(1,)).item()
-            end = start + max_len + 1
-            input_positions = sum((list(range(end-len(a), end+1)) for a in numbers), start=[])
-            label_positions = list(range(end-len(labels), end))
-        if self.reverse_output:
-            labels = labels[::-1]
-            if not self.vanilla:
-                label_positions = label_positions[::-1]
+        numbers = inputs.split('*')
+        start = 1 if not self.randomize else torch.randint(1, self.max_position-len(labels)+1, size=(1,)).item()
+        input_positions = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_input else -1] for a in numbers), start=[])
+        input_positions = input_positions[1:] if self.reverse_input else input_positions[:-1]
+        label_positions = list(range(start, start+len(labels)+1))[::1 if self.reverse_output else -1]
+        if not self.reverse_output: label_positions = label_positions[-1:] + label_positions[:-1]
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
         labels = " ".join(labels).replace('P', str(self.pad_token))
@@ -417,7 +400,7 @@ class MultipleAdditionScratchPadDataset(ArithmeticDataset):
             max_n_digits,
             min_n_operands=2,
             max_n_operands=3,
-            reverse_input=True,
+            reverse_input=False,
             reverse_output=True,
             reverse_output_order=False,
             scratchpad_start_with_zeros=True,
@@ -482,7 +465,7 @@ class MultipleAdditionScratchPadDataset(ArithmeticDataset):
                 pad_len=overflow+pad_offset if padding else 0,
                 start_with_zeros=scratchpad_start_with_zeros
             )
-            if padding:_inputs = [f"{'P'*(overflow+pad_offset-len(str(a)))}{a}" for a in numbers]
+            if padding: _inputs = [f"{'P'*(overflow+pad_offset-len(str(a)))}{a}" for a in numbers]
             else: _inputs = list(map(str, numbers))
             if reverse_input: _inputs = [x[::-1] for x in _inputs]            
             _inputs = '+'.join(_inputs)
@@ -508,7 +491,7 @@ class MultipleAdditionScratchPadDatasetWithCoupledPositions(MultipleAdditionScra
             max_n_digits,
             min_n_operands=2,
             max_n_operands=3,
-            reverse_input=True,
+            reverse_input=False,
             reverse_output=True,
             reverse_output_order=False,
             scratchpad_start_with_zeros=True,
@@ -520,12 +503,14 @@ class MultipleAdditionScratchPadDatasetWithCoupledPositions(MultipleAdditionScra
             randomize=True,
             max_position_digits=20,
             max_position_operands=4,
+            vanilla=False,
             **kwargs
         ):
         self.randomize = randomize
         self.max_position_digits = max_position_digits
         self.max_position_operands = max_position_operands
         self.padding = padding
+        self.vanilla = vanilla
         super().__init__(
             n_data,
             min_n_digits=min_n_digits,
@@ -552,23 +537,29 @@ class MultipleAdditionScratchPadDatasetWithCoupledPositions(MultipleAdditionScra
         n_step = len(lab_numbers)
         max_len = max(map(len, inp_numbers + lab_numbers))
         
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len+1, size=(1,)).item()
-        input_positions_1 = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_input else -1] for a in inp_numbers), start=[])
-        input_positions_1 = input_positions_1[1:] if self.reverse_input else input_positions_1[:-1]
-        label_positions_1 = sum((list(range(start, start+len(b)+1))[::1 if self.reverse_output else -1] for b in lab_numbers), start=[]) 
-        if not self.reverse_output: label_positions_1 = label_positions_1[-1:] + label_positions_1[:-1]
-        
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_operands-n_step+2, size=(1,)).item()
-        input_positions_2 = sum(([i] * (len(a)+1) for a, i in zip(inp_numbers, range(start, start+n_op))), start=[])
-        input_positions_2 = input_positions_2[1:] if self.reverse_input else input_positions_2[:-1]
-        _iter = list(range(start, start+n_step))[::-1 if self.reverse_output_order else 1]
-        label_positions_2 = sum(([j] * (len(b)+1) for b, j in zip(lab_numbers, _iter)), start=[])
-        
+        if self.vanilla:
+            start = 1 if not self.randomize else torch.randint(1, self.max_position-len(inputs)-len(labels)+1, size=(1,)).item()
+            positions = list(range(start, start + len(inputs) + len(labels) + 1))
+            input_positions, label_positions = positions[:len(inputs)], positions[len(inputs):]
+        else:
+            start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len+1, size=(1,)).item()
+            input_positions_1 = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_input else -1] for a in inp_numbers), start=[])
+            input_positions_1 = input_positions_1[1:] if self.reverse_input else input_positions_1[:-1]
+            label_positions_1 = sum((list(range(start, start+len(b)+1))[::1 if self.reverse_output else -1] for b in lab_numbers), start=[]) 
+            if not self.reverse_output: label_positions_1 = label_positions_1[-1:] + label_positions_1[:-1]
+            
+            start = 1 if not self.randomize else torch.randint(1, self.max_position_operands-n_step+2, size=(1,)).item()
+            input_positions_2 = sum(([i] * (len(a)+1) for a, i in zip(inp_numbers, range(start, start+n_op))), start=[])
+            input_positions_2 = input_positions_2[1:] if self.reverse_input else input_positions_2[:-1]
+            _iter = list(range(start, start+n_step))[::-1 if self.reverse_output_order else 1]
+            label_positions_2 = sum(([j] * (len(b)+1) for b, j in zip(lab_numbers, _iter)), start=[])
+            
+            input_positions = [input_positions_1, input_positions_2]
+            label_positions = [label_positions_1, label_positions_2]
+
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
         labels = " ".join(labels).replace('P', str(self.pad_token))
-        input_positions = [input_positions_1, input_positions_2]
-        label_positions = [label_positions_1, label_positions_2]
         return inputs, labels, input_positions, label_positions
 
 

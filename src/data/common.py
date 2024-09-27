@@ -51,10 +51,6 @@ class ArithmeticDataset(Dataset):
     def __getitem__(self, index):
         inputs = self.inputs[index]
         labels = self.labels[index]
-        if self.reverse_input:
-            inputs = inputs[::-1]
-        if self.reverse_output:
-            labels = labels[::-1]
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))  # Converts 'P' --> pad_token
         labels = " ".join(labels).replace('P', str(self.pad_token))  # Converts 'P' --> pad_token

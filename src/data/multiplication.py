@@ -139,13 +139,14 @@ class MultiplicationDataset(ArithmeticDataset):
             n_data,
             min_n_digits,
             max_n_digits,
-            reverse_output=False,
-            commutative=False,
-            padding=False,
+            reverse_input=False,
+            reverse_output=True,
+            padding=True,
             pad_token=SpecialToken.pad,
             **kwargs
         ):
         super().__init__()
+        self.reverse_input = reverse_input
         self.reverse_output = reverse_output
         self.inputs = []
         self.labels = []
@@ -172,11 +173,6 @@ class MultiplicationDataset(ArithmeticDataset):
                                if padding else f"{a}+{b}")
             self.labels.append(f"{'P'*(max_len+1-len(str(result)))}{result}" 
                                if padding else f"{result}")
-            if commutative and a != b:
-                self.inputs.append(f"{'P'*(max_len-len(str(b)))}{b}*{'P'*(max_len-len(str(a)))}{a}" 
-                                   if padding else f"{b}+{a}")
-                self.labels.append(f"{'P'*(max_len+1-len(str(result)))}{result}" 
-                                   if padding else f"{result}")
 
 
 #########################################################
@@ -187,8 +183,8 @@ class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):
             n_data,
             min_n_digits,
             max_n_digits,
+            reverse_input=False,
             reverse_output=False,
-            commutative=False,
             padding=False,
             pad_token='0',
             randomize=True,
@@ -197,8 +193,8 @@ class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):
         ):
         self.randomize = randomize
         self.max_position = max_position
-        super().__init__(n_data, min_n_digits, max_n_digits,
-            reverse_output, commutative, padding, pad_token, **kwargs)
+        super().__init__(n_data, min_n_digits, max_n_digits, 
+            reverse_input, reverse_output, padding, pad_token, **kwargs)
 
     def __getitem__(self, index):
         inputs = self.inputs[index]
@@ -210,7 +206,6 @@ class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):
         input_positions = list(range(end-len(a), end+1)) + list(range(end-len(b), end+1))
         label_positions = list(range(end-len(labels), end))
         if self.reverse_output:
-            labels = labels[::-1]
             label_positions = label_positions[::-1]
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
@@ -220,7 +215,7 @@ class MultiplicationDatasetWithCoupledPositions(MultiplicationDataset):
 
 ###############################
 
-class MultiplicationScratchPadDataset(ArithmeticDataset):                                                                       
+class MultiplicationScratchPadDataset(ArithmeticDataset):
     def __init__(self,
             n_data,
             min_n_digits_1,
@@ -270,14 +265,6 @@ class MultiplicationScratchPadDataset(ArithmeticDataset):
             self.inputs.append(_inputs)
             self.labels.append(result)
 
-    def __getitem__(self, index):
-        inputs = self.inputs[index]
-        labels = self.labels[index]
-        # Put white spaces
-        inputs = " ".join(inputs).replace('P', str(self.pad_token))  # Converts 'P' --> pad_token
-        labels = " ".join(labels).replace('P', str(self.pad_token))  # Converts 'P' --> pad_token
-        return inputs, labels
-
 
 class MultiplicationScratchPadDatasetWithCoupledPositions(MultiplicationScratchPadDataset):                                                                       
     def __init__(self,
@@ -291,8 +278,8 @@ class MultiplicationScratchPadDatasetWithCoupledPositions(MultiplicationScratchP
             padding=True,
             pad_token='0',
             randomize=True,
-            max_position_digits=20,
-            max_position_operands=4,
+            max_position_digits=50,
+            max_position_operands=50,
             **kwargs
         ):
         self.randomize = randomize
@@ -321,31 +308,27 @@ class MultiplicationScratchPadDatasetWithCoupledPositions(MultiplicationScratchP
         max_len_01 = max(map(len, [A, B] + lab_numbers_1))
         max_len_02 = max(map(len, [A, B] + lab_numbers_2))
 
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_01, size=(1,)).item()
+        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_01+1, size=(1,)).item()
         o = 1 if self.reverse_output else 0
         input_positions_1 = list(range(start+o, start+len(A)+o))[::1 if self.reverse_input else -1] + [0] * (len(B)+1)
         label_positions_1 = sum((list(range(start, start+len(a)+1))[::1 if self.reverse_output else -1] for a in lab_numbers_1), start=[])
         label_positions_1 += [0] * (sum(map(len, lab_numbers_2)) + len(lab_numbers_2))
-        # assert all([x <= self.max_position_digits for x in input_positions_1+label_positions_1])
         
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_operands-len(B), size=(1,)).item()
+        start = 1 if not self.randomize else torch.randint(1, self.max_position_operands-len(B)+2, size=(1,)).item()
         input_positions_2 = [0] * (len(A)+1) + list(range(start, start+len(B)))[::1 if self.reverse_input else -1]
         label_positions_2 = sum(([i] * (len(a)+1) for a, i in zip(lab_numbers_1, range(start, start+len(lab_numbers_1)))), start=[])
         label_positions_2 += sum(([j] * (len(b)+1) for b, j in zip(lab_numbers_2, range(start, start+len(lab_numbers_2)))), start=[])
-        # assert all([x <= self.max_position_operands for x in input_positions_2+label_positions_2])
 
-        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_02, size=(1,)).item()
+        start = 1 if not self.randomize else torch.randint(1, self.max_position_digits-max_len_02+1, size=(1,)).item()
         input_positions_3 = [0] * (len(A) + 1 + len(B))
         label_positions_3 = sum((list(range(start+i, start+i+len(a)+1))[::1 if self.reverse_output else -1] for i, a in enumerate(lab_numbers_1)), start=[]) 
         label_positions_3 += sum((list(range(start, start+len(b)+1))[::1 if self.reverse_output else -1] for b in lab_numbers_2), start=[]) 
-        # pos_3 = torch.tensor(input_positions_3+label_positions_3)
-        # assert all([x <= self.max_position_digits for x in pos_3]), (start, inputs+'='+labels, (pos_3 > self.max_position_digits).numpy())
+
+        input_positions = [input_positions_1, input_positions_2, input_positions_3]
+        label_positions = [label_positions_1, label_positions_2, label_positions_3]
 
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
         labels = " ".join(labels).replace('P', str(self.pad_token))
-
-        input_positions = [input_positions_1, input_positions_2, input_positions_3]
-        label_positions = [label_positions_1, label_positions_2, label_positions_3]
+        
         return inputs, labels, input_positions, label_positions
-
