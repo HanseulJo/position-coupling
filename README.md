@@ -1,17 +1,28 @@
 # Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers
 
+Github repository for:
+* Hanseul Cho, Jaeyoung Cha, Pranjal Awasthi, Srinadh Bhojanapalli, Anupam Gupta, and Chulhee Yun. "Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers." NeurIPS 2024 🥳
+* Hanseul Cho, Jaeyoung Cha, Srinadh Bhojanapalli, and Chulhee Yun. "Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count." arXiv preprint.
 
 ## Paper
 
-Link to paper: [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
+Link to our first paper: [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
 
-## Citation
+## Citations
 
 ```bibtex
-@article{cho2024position,
+@inproceedings{cho2024position,
     title={Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers}, 
     author={Hanseul Cho and Jaeyoung Cha and Pranjal Awasthi and Srinadh Bhojanapalli and Anupam Gupta and Chulhee Yun},
-    journal={arXiv preprint arXiv:2405.20671},
+    booktitle={Advances in Neural Information Processing Systems},
+    volume={37},
+    year={2024}
+}
+
+@article{cho2024position,
+    title={Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count}, 
+    author={Hanseul Cho and Jaeyoung Cha and Srinadh Bhojanapalli and Chulhee Yun},
+    journal={arXiv preprint},
     year={2024}
 }
 ```
@@ -160,7 +171,7 @@ For more examples of running codes, please check `scripts/` directory.
 │       ├── __init__.py
 │       └── optimization.py
 ├── vis/  (make it yourself, for visualization)
-└── wandb/
+└── wandb/  (automatically generated when using W&B)
 ```
 
 
