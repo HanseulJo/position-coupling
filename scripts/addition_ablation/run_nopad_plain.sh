@@ -2,7 +2,7 @@ cd ../..
 
 n_train=30
 n_test=200
-maxpos=202
+maxpos=203
 
 ## Shallow ##
 

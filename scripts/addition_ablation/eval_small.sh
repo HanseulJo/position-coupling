@@ -1,7 +1,7 @@
 cd ../..
 
 n_train=30
-n_test=100
+n_test=200
 maxpos=202
 n_layers=1
 n_heads=4
