@@ -58,5 +58,5 @@ num_beams: 1
 # early_stopping: False
 
 ## Save/Compile model or not ##
-save: False
+save: True
 compile: True

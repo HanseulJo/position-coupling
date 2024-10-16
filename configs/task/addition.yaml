@@ -1,5 +1,4 @@
 symbol: +
-commutative: False
 reverse_input: False
 reverse_output: True
 eos: True
@@ -12,32 +11,15 @@ train:
   min_n_digits: 1
   max_n_digits: 40
   n_data: 100000
-  hard_carry: False
 
 val:
   dataset_cls: AdditionDataset
   min_n_digits: 40
   max_n_digits: 40
   n_data: 1000
-  hard_carry: False
-
-# val_hard:
-#   dataset_cls: AdditionDataset
-#   min_n_digits: 40
-#   max_n_digits: 40
-#   n_data: 10000
-#   hard_carry: True
 
 val_long:
   dataset_cls: AdditionDataset
   min_n_digits: 100
   max_n_digits: 100
   n_data: 1000
-  hard_carry: False
-
-# val_long_hard:
-#   dataset_cls: AdditionDataset
-#   min_n_digits: 100
-#   max_n_digits: 100
-#   n_data: 10000
-#   hard_carry: True

@@ -33,6 +33,7 @@ def evaluate(args):
     eval_step_digits = args.step_digits
     eval_step_operands = args.step_operands
     pad_offset = args.pad_offset
+    compile = args.compile
 
     # Hydra Compose
     initialize(version_base=None, config_path=config_path) 
@@ -45,6 +46,8 @@ def evaluate(args):
     for k in dict_cfg['model']:
         cfg.model[k] = dict_cfg['model'][k]
         # print(k, dict_cfg['model'][k], eval(f"cfg.model.{k}"))
+    for k in dict_cfg['task']:
+        cfg.task[k] = dict_cfg['task'][k]
 
     # device
     if cfg.device=='cpu':
@@ -76,7 +79,7 @@ def evaluate(args):
     
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
-    if getattr(cfg.model, 'compile', True):
+    if compile:
         model = torch.compile(model)  # compile!
 
     # get pretrained model
@@ -88,12 +91,12 @@ def evaluate(args):
     if model_path.startswith(logging_path+'/last'):
         print("Testing Last Model")
         mode = 'last'
-    if not os.path.exists(os.path.join(model_path)):
+    if not os.path.exists(model_path):
         print("No model exists... Returning...")
         return
-    if os.path.exists(os.path.join(logging_path, f'performances_EVAL_{mode}.json')):
-        print("Evaluation is already done.")
-        return
+    # if os.path.exists(os.path.join(logging_path, f'performances_EVAL_{mode}.json')):
+    #     print("Evaluation is already done.")
+    #     return
     model.load_state_dict(torch.load(model_path, map_location=torch.device(cfg.device)))
     model.eval()
 
@@ -106,7 +109,7 @@ def evaluate(args):
     cfg.task.train.min_n_operands=2
     cfg.task.train.max_n_operands=2
     cfg.task.train.n_data=1
-    cfg.task.train.randomize=False
+    # cfg.task.train.randomize=False
     cfg.task.val.min_n_digits=1
     cfg.task.val.max_n_digits=1
     cfg.task.val.min_n_operands=2
@@ -128,12 +131,12 @@ def evaluate(args):
         tokenwise_accuracies_ = []
         instancewise_accuracies_ = []
         for n_operands in reversed(range(min_n_operands, max_n_operands+1, eval_step_operands)):
-            try:
+            # try:
                 cfg.task.val_long.min_n_digits = n_digits
                 cfg.task.val_long.max_n_digits = n_digits
                 cfg.task.val_long.min_n_operands = n_operands
                 cfg.task.val_long.max_n_operands = n_operands
-                cfg.task.val_long['pad_offset'] = pad_offset
+                # cfg.task.val_long['pad_offset'] = pad_offset
                 print(f"#digits={n_digits}\n#operands={n_operands}")
 
                 # Random seed
@@ -167,6 +170,17 @@ def evaluate(args):
                         loss_sum += loss * batchsize
                         logits = model_output.logits
                         pred = torch.argmax(logits, dim=-1)
+                        if batch_idx == 0:
+                            print("Input     :", model_inputs['input_ids'][0].cpu().numpy() - id_0)
+                            if 'position_ids' in model_inputs:
+                                print("Position  :", model_inputs['position_ids'][:, 0].cpu().numpy())
+                            if model_name in DECODER_BASED:
+                                lab = model_inputs['labels'][0, 1:]
+                                print("Prediction:", pred[0, :-1][lab != -100].cpu().numpy() - id_0)
+                            else:
+                                lab = model_inputs['labels'][0]
+                                print("Prediction:", pred[0][lab != -100].cpu().numpy() - id_0)
+                            print("Label     :", lab[lab != -100].cpu().numpy() - id_0)
                         tokenwise_correct, num_tokens = get_tokenwise_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False)
                         instancewise_correct, _ = get_instancewise_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False)
                         tokenwise_correct_sum += tokenwise_correct.item()
@@ -195,12 +209,12 @@ def evaluate(args):
                 losses_.append(loss_avg)
                 tokenwise_accuracies_.append(tokenwise_accuracy_avg)
                 instancewise_accuracies_.append(instancewise_accuracy_avg)
-            except Exception as e:
-                print(e)
-                print(f"#digits={n_digits} #operands={n_operands} Loss {None} TokenAcc {None} InstAcc {None}")
-                losses_.append(None)
-                tokenwise_accuracies_.append(None)
-                instancewise_accuracies_.append(None)
+            # except Exception as e:
+            #     print(e)
+            #     print(f"#digits={n_digits} #operands={n_operands} Loss {None} TokenAcc {None} InstAcc {None}")
+            #     losses_.append(None)
+            #     tokenwise_accuracies_.append(None)
+            #     instancewise_accuracies_.append(None)
 
         losses.append(losses_[::-1])
         tokenwise_accuracies.append(tokenwise_accuracies_[::-1])
@@ -231,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--step_digits',     type=int,  default=1)
     parser.add_argument('--step_operands',   type=int,  default=1)
     parser.add_argument('--pad_offset',   type=int,  default=0)
+    parser.add_argument('--compile',   action='store_true')
     parser.add_argument('--overrides',   type=str,  default=[],  nargs='*')
     args = parser.parse_args()
 

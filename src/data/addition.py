@@ -7,22 +7,6 @@ from src.data.common import ArithmeticDataset
 
 ################ Helper Functions ################
 
-
-def generate_hard_carry_sum_pair(n_digits):
-    a = 0
-    b = 0
-    for j in range(n_digits):
-        if j == n_digits-1:
-            a_digit = torch.randint(low=1, high=10, size=(1,)).item()
-            b_digit = torch.randint(low=10-a_digit, high=10, size=(1,)).item()
-        else:
-            a_digit = torch.randint(low=0, high=10, size=(1,)).item()
-            b_digit = 9 - a_digit
-        a = 10 * a + a_digit
-        b = 10 * b + b_digit
-    return a, b
-
-
 def get_carries_for_addition(a, b):
     _max_len = max(len(str(a)), len(str(b)))
     a = f"{a:0{_max_len}d}"
@@ -103,6 +87,7 @@ def generate_recursive_scratchpad(a, b, reverse=True):
         scratchpad += f"{a[i+1:]}+{b[i+1:]}=" if len(a[i+1:]) > 0 else ':'
     return scratchpad
 
+
 def generate_scratchpad_multiple_addition(numbers: list, reversed_num=True, reversed_order=False, pad_len=0, start_with_zeros=False):
     if len(numbers)<1: return ""
     cum_sums = [0]
@@ -115,6 +100,7 @@ def generate_scratchpad_multiple_addition(numbers: list, reversed_num=True, reve
         cum_sums_str = [x[::-1] for x in cum_sums_str]
     scratchpad = '>'.join(cum_sums_str)
     return scratchpad
+
 
 ################ END of Helper Functions ################
 
@@ -130,7 +116,6 @@ class AdditionDataset(ArithmeticDataset):
             reverse_output=False,
             padding=False,
             pad_token=SpecialToken.pad,
-            hard_carry=False,
             **kwargs
         ):
         super().__init__()
@@ -141,31 +126,26 @@ class AdditionDataset(ArithmeticDataset):
         self.pad_token = pad_token
         for _ in trange(n_data):
             if len(self.inputs) >= n_data: break
-            if hard_carry:
-                n_digits = torch.randint(low=min_n_digits,
-                                        high=max_n_digits+1, size=(1,)).item()
-                numbers = generate_hard_carry_sum_pair(n_digits)
-            else:
-                numbers = []
-                # uniform sampling of n_digits of two numbers
-                n_digits_arr = torch.randint(low=min_n_digits, 
-                                            high=max_n_digits+1, size=(2, ))
-                for i in range(2):
-                    n_digits = n_digits_arr[i].item()
-                    # uniform sampling of a number
-                    if n_digits == 1:
-                        num = torch.randint(0, 10, size=(1,)).item()
-                    else:
-                        num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
-                        num = int(''.join(map(str, num_arr)))
-                    numbers.append(int(num))
-                a, b = numbers
+            numbers = []
+            # uniform sampling of n_digits of two numbers
+            n_digits_arr = torch.randint(low=min_n_digits, 
+                                        high=max_n_digits+1, size=(2, ))
+            for i in range(2):
+                n_digits = n_digits_arr[i].item()
+                # uniform sampling of a number
+                if n_digits == 1:
+                    num = torch.randint(0, 10, size=(1,)).item()
+                else:
+                    num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
+                    num = int(''.join(map(str, num_arr)))
+                numbers.append(int(num))
+            a, b = numbers
             result = a + b
             max_len = max(len(str(a)),len(str(b)))
             overflow = max_len + 1
 
             if padding:
-                _inputs = [f"{'P'*(overflow-len(str(c)))}{c}" for c in numbers]
+                _inputs = [f"{'P'*(max_len-len(str(c)))}{c}" for c in numbers]
                 _labels = f"{'P'*(overflow-len(str(result)))}{result}"
             else:
                 _inputs = list(map(str, numbers))
@@ -189,50 +169,44 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
             reverse_output=False,
             padding=False,
             pad_token='0',
-            hard_carry=False,
             randomize=True,
             max_position=22,  # max_pos >= len(operand)+2 
-            cyclic=False,
             vanilla=False,
             **kwargs
         ):
         self.randomize = randomize
         self.max_position = max_position
-        self.cyclic = cyclic
         self.vanilla = vanilla # not a coupled position; vanilla randomized APE
         super().__init__(n_data, min_n_digits, max_n_digits,
             reverse_input, reverse_output, padding, pad_token,
-            hard_carry, **kwargs)
+            **kwargs)
 
     def __getitem__(self, index):
         inputs = self.inputs[index]
         labels = self.labels[index]
         a, b = inputs.split('+')
-        max_len = max(len(a),len(b))
-        start_ = 1 #(self.max_position - (len(labels)+1)) // 2 + 1
-        if self.cyclic:
-            start = 1 if not self.randomize else torch.randint(1, self.max_position+1, size=(1,)).item()
-            end = start + max_len + 1
-            positions = list(range(1, self.max_position+1))
-            while len(positions) < end:
-                positions += list(range(1, self.max_position+1))
-            input_positions = positions[end-len(a):end+1] + positions[end-len(b):end+1]
-            label_positions = positions[end-len(labels):end]
-        elif self.vanilla:
+        if self.vanilla:
             start = 1 if not self.randomize else torch.randint(1, self.max_position-len(inputs)-len(labels)+1, size=(1,)).item()
             positions = list(range(start, start + len(inputs) + len(labels) + 1))
             input_positions, label_positions = positions[:len(inputs)], positions[len(inputs):]
         else:
-            start = start_ if not self.randomize else torch.randint(1, self.max_position-max_len, size=(1,)).item()
-            end = start + max_len + 1
-            input_positions = list(range(end-len(a), end+1)) + list(range(end-len(b), end+1))
-            label_positions = list(range(end-len(labels), end))
-        if self.reverse_input:
-            if not self.vanilla:
-                input_positions[:-1] = input_positions[:-1][::-1]
-        if self.reverse_output:
-            if not self.vanilla:
-                label_positions = label_positions[::-1]
+            # modified: least significant digit has least position ID
+            start = 1 if not self.randomize else torch.randint(1, self.max_position-len(labels)+(1 if self.reverse_output else 0), size=(1,)).item()
+            plus_position = start
+            a_positions = list(range(start+1, start+1+len(a)))
+            b_positions = list(range(start+1, start+1+len(b)))
+            if not self.reverse_input:
+                a_positions = a_positions[::-1]
+                b_positions = b_positions[::-1]
+            input_positions = a_positions + [plus_position] + b_positions
+            ans_positions = list(range(start+1, start+1+len(labels)))
+            if self.reverse_output:
+                eq_position = start
+            else:
+                ans_positions = ans_positions[::-1]
+                eq_position = start+len(labels)+1
+            label_positions = [eq_position] + ans_positions
+            
         # Put white spaces
         inputs = " ".join(inputs).replace('P', str(self.pad_token))
         labels = " ".join(labels).replace('P', str(self.pad_token))
@@ -635,39 +609,34 @@ class CarryDataset(ArithmeticDataset):
         self.labels = []
         for i in range(n_data):
             numbers = []
-            if torch.rand(1).item() <= .2:  # 20% of summations are guaranteed to be hard-carry example
-                n_digits= torch.randint(low=min_n_digits, high=max_n_digits+1, size=(1, )).item()
-                a, b = generate_hard_carry_sum_pair(n_digits)
-                numbers = [a, b]
-            else:
-                # uniform sampling of n_digits of two numbers
-                n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(2, ))
-                for i in range(2):
-                    n_digits = n_digits_arr[i].item()
-                    # uniform sampling of a number
-                    if n_digits == 1:
-                        num = torch.randint(0, 10, size=(1,)).item()
-                    else:
-                        num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
-                        num = int(''.join(map(str, num_arr)))
-                    numbers.append(int(num))
-                a, b = numbers
-                max_len = max(len(str(a)), len(str(b)))
-                carries_all, direct_carries, virtual_carries = get_carries_for_addition(a, b)
-                if mode == 'all':
-                    carries = carries_all
-                elif mode == 'direct':
-                    carries = direct_carries
-                elif mode == 'virtual':
-                    carries = virtual_carries
-                else: raise ValueError(f'Wrong mode: {mode}')
-                self.inputs.append(f"{'P'*(max_len-len(str(a)))}{a}+{'P'*(max_len-len(str(b)))}{b}" 
-                                   if padding else f"{a}+{b}")
+            # uniform sampling of n_digits of two numbers
+            n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(2, ))
+            for i in range(2):
+                n_digits = n_digits_arr[i].item()
+                # uniform sampling of a number
+                if n_digits == 1:
+                    num = torch.randint(0, 10, size=(1,)).item()
+                else:
+                    num_arr = [torch.randint(1, 10, size=(1,)).item()] + torch.randint(0, 10, size=(n_digits-1,)).tolist()
+                    num = int(''.join(map(str, num_arr)))
+                numbers.append(int(num))
+            a, b = numbers
+            max_len = max(len(str(a)), len(str(b)))
+            carries_all, direct_carries, virtual_carries = get_carries_for_addition(a, b)
+            if mode == 'all':
+                carries = carries_all
+            elif mode == 'direct':
+                carries = direct_carries
+            elif mode == 'virtual':
+                carries = virtual_carries
+            else: raise ValueError(f'Wrong mode: {mode}')
+            self.inputs.append(f"{'P'*(max_len-len(str(a)))}{a}+{'P'*(max_len-len(str(b)))}{b}" 
+                                if padding else f"{a}+{b}")
+            self.labels.append(carries)
+            if commutative and a != b:
+                self.inputs.append(f"{'P'*(max_len-len(str(b)))}{b}+{'P'*(max_len-len(str(a)))}{a}" 
+                                    if padding else f"{b}+{a}")
                 self.labels.append(carries)
-                if commutative and a != b:
-                    self.inputs.append(f"{'P'*(max_len-len(str(b)))}{b}+{'P'*(max_len-len(str(a)))}{a}" 
-                                       if padding else f"{b}+{a}")
-                    self.labels.append(carries)
     
 
 #########################################################
@@ -720,7 +689,6 @@ class AdditionScratchpad(ArithmeticDataset):
             reverse_output=False,
             commutative=False,
             padding=False,
-            hard_carry=False,
             **kwargs
         ):
         super().__init__()
@@ -728,19 +696,15 @@ class AdditionScratchpad(ArithmeticDataset):
         self.inputs = []
         self.labels = []
         for i in range(n_data):
-            if hard_carry:
-                n_digits = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(1,)).item()
-                numbers = generate_hard_carry_sum_pair(n_digits)
-            else:
-                numbers = []
-                # uniform sampling of n_digits of two numbers
-                n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(2, ))
-                for i in range(2):
-                    n_digits = n_digits_arr[i].item()
-                    # uniform sampling of a number
-                    num = torch.randint(low=10**(n_digits-1) - (1 if n_digits==1 else 0),
-                                        high=10**n_digits, size=(1,)).item()
-                    numbers.append(int(num))
+            numbers = []
+            # uniform sampling of n_digits of two numbers
+            n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(2, ))
+            for i in range(2):
+                n_digits = n_digits_arr[i].item()
+                # uniform sampling of a number
+                num = torch.randint(low=10**(n_digits-1) - (1 if n_digits==1 else 0),
+                                    high=10**n_digits, size=(1,)).item()
+                numbers.append(int(num))
             
             a, b = numbers
             max_len = max(len(str(a)), len(str(b)))

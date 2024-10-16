@@ -29,6 +29,9 @@ def evaluate(args):
     config_name = args.config_name
     overrides = args.overrides
     n_digits = args.n_digits
+    n_operands = args.n_operands
+    compile = args.compile
+    title = args.title.replace("\\", "\n")
 
     # Hydra Compose
     initialize(version_base=None, config_path=config_path) 
@@ -62,7 +65,7 @@ def evaluate(args):
     vocab = dict(sorted(tokenizer.get_vocab().items(), key=lambda x: x[1]))
     i2w = {v: k for k, v in vocab.items()}
     if cfg.task.bos_to_eos:
-        i2w[vocab['[EOS]']] = 'BOS'
+        i2w[vocab['[EOS]']] = '$'
     
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
@@ -85,43 +88,41 @@ def evaluate(args):
     model.load_state_dict(torch.load(model_path, map_location=torch.device(cfg.device)))
     model.eval()
 
-    folder = os.path.join(logging_path, 'heatmaps/')
+    folder = os.path.join(logging_path, 'heatmaps')
     if not os.path.exists(folder):
         os.makedirs(folder)
-    
-    wpe = model.decoder.wpe.weight.detach().cpu().numpy()[:cfg.task.max_position+1]
-    wte = model.shared.weight.detach().cpu().numpy()
-
-    if n_digits <= 2:
-        annot = False
-        for layer_idx, block in enumerate(model.decoder.block):
-            Q = block.layer[0].SelfAttention.q.weight.detach().cpu().numpy()
-            K = block.layer[0].SelfAttention.k.weight.detach().cpu().numpy()
-            for head_idx, (q, k) in tqdm(enumerate(zip(np.split(Q, cfg.model.num_heads), np.split(K, cfg.model.num_heads))), total=cfg.model.num_heads):
-                sns.set_theme(font_scale=0.1)
-                sns.heatmap(q @ k.T, annot=annot, fmt='.1f')
-                plt.savefig(f'{folder}/qk_layer{layer_idx}_head{head_idx}.pdf')
-                plt.close()
-                sns.set_theme(font_scale=0.006)
-                sns.heatmap(wpe @ q.T @ k @ wpe.T / (cfg.model.d_kv**.5), annot=annot, fmt='.1f')
-                plt.savefig(f'{folder}/wpeQKwpe_layer{layer_idx}_head{head_idx}.pdf')
-                plt.close()
-                sns.set_theme(font_scale=0.3)
-                sns.heatmap(wte @ q.T @ k @ wte.T / (cfg.model.d_kv**.5), annot=annot, fmt='.1f', xticklabels=vocab.keys(), yticklabels=vocab.keys())
-                plt.savefig(f'{folder}/wteQKwte_layer{layer_idx}_head{head_idx}.pdf')
-                plt.close()
-                sns.set_theme(font_scale=0.02)
-                sns.heatmap(wte @ q.T @ k @ wpe.T / (cfg.model.d_kv**.5), annot=annot, fmt='.1f', yticklabels=vocab.keys())
-                plt.savefig(f'{folder}/wteQKwpe_layer{layer_idx}_head{head_idx}.pdf')
-                plt.close()
-                sns.heatmap(wpe @ q.T @ k @ wte.T / (cfg.model.d_kv**.5), annot=annot, fmt='.1f', xticklabels=vocab.keys())
-                plt.savefig(f'{folder}/wpeQKwte_layer{layer_idx}_head{head_idx}.pdf')
-                plt.close()
 
     cfg.task.val_long.min_n_digits = n_digits
     cfg.task.val_long.max_n_digits = n_digits
     print(f"N={n_digits}")
-    sns.set_theme(font_scale=1.5/np.sqrt(n_digits))
+    # sns.set_theme(font_scale=1.5/np.sqrt(n_digits))
+
+
+    cfg.task.train.min_n_digits=1
+    cfg.task.train.max_n_digits=1
+    cfg.task.train.min_n_operands=2
+    cfg.task.train.max_n_operands=2
+    cfg.task.train.n_data=1
+    # cfg.task.train.randomize=False
+    cfg.task.val.min_n_digits=1
+    cfg.task.val.max_n_digits=1
+    cfg.task.val.min_n_operands=2
+    cfg.task.val.max_n_operands=2
+    cfg.task.val.n_data=1
+    cfg.task.val_many_digits.min_n_digits=1
+    cfg.task.val_many_digits.max_n_digits=1
+    cfg.task.val_many_digits.min_n_operands=2
+    cfg.task.val_many_digits.max_n_operands=2
+    cfg.task.val_many_digits.n_data=1
+    cfg.task.val_many_operands.min_n_digits=1
+    cfg.task.val_many_operands.max_n_digits=1
+    cfg.task.val_many_operands.min_n_operands=2
+    cfg.task.val_many_operands.max_n_operands=2
+    cfg.task.val_many_operands.n_data=1
+    cfg.task.val_long.min_n_digits=n_digits
+    cfg.task.val_long.max_n_digits=n_digits
+    cfg.task.val_long.min_n_operands=n_operands
+    cfg.task.val_long.max_n_operands=n_operands
 
     # Random seed
     set_seed(seed=999)
@@ -160,66 +161,77 @@ def evaluate(args):
             acc = instancewise_accuracy.item() * 100
             batchsize = len(model_inputs['input_ids'])
             instancewise_accuracy_sum += instancewise_accuracy * batchsize
-            num_items += torch.sum(acc_arr).item()
+            num_items += batchsize
+            # num_items += torch.sum(acc_arr).item()
 
-        if acc == 0:  continue
+        # if acc == 0:  continue
 
         for layer_idx in range(cfg.model.num_layers):
-            att_score_sum[layer_idx] += model_output.attentions[layer_idx]['scores'].float().detach()[acc_arr].cpu().numpy().sum(0)
-            att_probs_sum[layer_idx] += model_output.attentions[layer_idx]['probs'].float().detach()[acc_arr].cpu().numpy().sum(0)
+            # att_score_sum[layer_idx] += model_output.attentions[layer_idx]['scores'].float().detach()[acc_arr].cpu().numpy().sum(0)
+            # att_probs_sum[layer_idx] += model_output.attentions[layer_idx]['probs'].float().detach()[acc_arr].cpu().numpy().sum(0)
+            att_score_sum[layer_idx] += model_output.attentions[layer_idx]['scores'].float().detach().cpu().numpy().sum(0)
+            att_probs_sum[layer_idx] += model_output.attentions[layer_idx]['probs'].float().detach().cpu().numpy().sum(0)
                 
     print("Avergaged Attention matrix of", num_items, "items")
-    if not os.path.exists(f'{folder}/{n_digits}digits_{mode}_{acc:.1f}/'):
-        os.makedirs(f'{folder}/{n_digits}digits_{mode}_{acc:.1f}/')
+    folder = os.path.join(folder,f"{n_digits}digits_{n_operands}operands_{mode}_{acc:.1f}")
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
     # cmap = sns.light_palette("orangered", as_cmap=True, reverse=True)
     cmap = sns.color_palette("YlOrBr_r", as_cmap=True)
     cmap.set_bad("black")
+    min_attn=0.01
     for layer_idx in range(cfg.model.num_layers):
         ## Attention Score Matrices
-        att_heads = att_score_sum[layer_idx] / num_items
-        for head_idx, att in tqdm(enumerate(att_heads), total=cfg.model.num_heads, desc=f'layer{layer_idx} (score)...'):
-            fig, ax = plt.subplots(1, 1, figsize=(8,8))
-            sns.heatmap(att[:-1, :-1].T, annot=(n_digits<=10), fmt='.2f', vmin=att[att!=float('-inf')].min(), vmax=att.max(), cbar=False, ax=ax,
-                        xticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1],
-                        yticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1]
-                        )
-            ax.tick_params(labeltop=True, labelbottom = False, labelleft=False, labelright=True, labelsize=14, pad=0)
-            fig.tight_layout()
-            fig.savefig(f'{folder}/{n_digits}digits_{mode}_{acc:.1f}/scores_layer{layer_idx}_head{head_idx}.pdf')
-            plt.close()
-
+        # att_heads = att_score_sum[layer_idx] / num_items
+        # for head_idx, att in tqdm(enumerate(att_heads), total=cfg.model.num_heads, desc=f'layer{layer_idx} (score)...'):
+        #     fig, ax = plt.subplots(1, 1, figsize=(8,8))
+        #     sns.heatmap(att[:-1, :-1], annot=(n_digits<=5), fmt='.2f', vmin=att[att!=float('-inf')].min(), vmax=att.max(), cbar=False, ax=ax,
+        #                 xticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1],
+        #                 yticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1]
+        #                 )
+        #     ax.tick_params(labeltop=False, labelbottom = True, labelleft=True, labelright=False, labelsize=4, pad=0)
+        #     fig.tight_layout()
+        #     fig.savefig(f'{folder}/scores_layer{layer_idx}_head{head_idx}.pdf')
+        #     plt.close()
+        if layer_idx < 5: continue
         ## Attention matrices (after softmax)
         att_heads = att_probs_sum[layer_idx] / num_items
         for head_idx, att in tqdm(enumerate(att_heads), total=cfg.model.num_heads, desc=f'layer{layer_idx} (probs)...'):
             # Full attention matrices
-            fig, ax = plt.subplots(1, 1, figsize=(8,8))
+            fig, ax = plt.subplots(1, 1, figsize=(10,8))
             # ax.set_facecolor("black")
-            sns.heatmap(att[:-1, :-1], annot=(n_digits<=10), fmt='.2f', cbar=False, ax=ax,  vmin=0, vmax=1, mask=att[:-1, :-1]<0.01, cmap=cmap,
+            sns.heatmap(att[:-1, :-1], annot=(n_digits<=5), fmt='.2f', cbar=True, ax=ax,  vmin=min_attn, vmax=1, mask=att[:-1, :-1]<min_attn, 
+                        cmap=cmap,
                         xticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1],
-                        yticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1]
+                        yticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1],
                         )
-            ax.tick_params(labeltop=True, labelbottom = False, labelleft=True, labelright=False, labelsize=14, pad=0)
+            ax.tick_params(labeltop=False, labelbottom = True, labelleft=True, labelright=False, labelsize=4, pad=0)
             plt.yticks(rotation=270)
-            ax.get_xticklabels()[0].set_fontsize(10)
-            ax.get_yticklabels()[0].set_fontsize(10)
+            plt.xticks(rotation=0)
+            # ax.get_xticklabels()[0].set_fontsize(10)
+            # ax.get_yticklabels()[0].set_fontsize(10)
+            ax.set_aspect('equal')
+
+            ax.set_title(title, weight="bold", fontsize=16)
             fig.tight_layout()
-            fig.savefig(f'{folder}/{n_digits}digits_{mode}_{acc:.1f}/probs_layer{layer_idx}_head{head_idx}.pdf')
+            fig.savefig(f'{folder}/probs_layer{layer_idx}_head{head_idx}.pdf')
             plt.close()
 
             # Closed-up view
-            fig, ax = plt.subplots(1, 1, figsize=(9,3))
-            # ax.set_facecolor("black")
-            sns.heatmap(att[-n_digits-3:-1,:-1], annot=(n_digits<=10), fmt='.2f', cbar=False, ax=ax, vmin=0, vmax=1, mask=att[-n_digits-3:-1,:-1]<0.01, cmap=cmap,
-                        xticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1],
-                        yticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][-n_digits-3:-1]
-                        )
-            ax.tick_params(labeltop=True, labelbottom = False, labelleft=True, labelright=False, labelsize=14, pad=0)
-            plt.yticks(rotation=270)
-            ax.get_xticklabels()[0].set_fontsize(10)
-            fig.tight_layout()
-            fig.savefig(f'{folder}/{n_digits}digits_{mode}_{acc:.1f}/probs_layer{layer_idx}_head{head_idx}_reduced.pdf')
-            plt.close()
+            # fig, ax = plt.subplots(1, 1, figsize=(9,3))
+            # # ax.set_facecolor("black")
+            # sns.heatmap(att[-n_digits-3:-1,:-1], annot=(n_digits<=5), fmt='.2f', cbar=False, ax=ax, vmin=0, vmax=1, mask=att[-n_digits-3:-1,:-1]<0.01, cmap=cmap,
+            #             xticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][:-1],
+            #             yticklabels=[i2w[w] for w in model_inputs['input_ids'][0].cpu().tolist()][-n_digits-3:-1]
+            #             )
+            # ax.tick_params(labeltop=True, labelbottom = False, labelleft=True, labelright=False, labelsize=14, pad=0)
+            # plt.yticks(rotation=270)
+            # ax.get_xticklabels()[0].set_fontsize(10)
+            # fig.tight_layout()
+            # fig.savefig(f'{folder}/probs_layer{layer_idx}_head{head_idx}_reduced.pdf')
+            # plt.close()
         
     instancewise_accuracy_avg = instancewise_accuracy_sum/len(dataset[phase])
     print("EM Acc:", instancewise_accuracy_avg.item() * 100) 
@@ -230,6 +242,9 @@ if __name__ == '__main__':
     parser.add_argument('--config_path', type=str,  default='./configs')
     parser.add_argument('--config_name', type=str,  default='config')
     parser.add_argument('--n_digits',type=int,  default=10)
+    parser.add_argument('--n_operands',type=int,  default=10)
+    parser.add_argument('--compile',   action='store_true')
+    parser.add_argument('--title',   type=str, default="")
     parser.add_argument('--overrides',   type=str,  default=[],  nargs='*')
     args = parser.parse_args()
 

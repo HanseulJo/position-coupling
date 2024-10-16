@@ -3,21 +3,22 @@ cd ../..
 n_train=20
 n_test=50
 maxpos=101
-n_layers=1
-n_heads=4
+n_layers=6
+n_heads=8
 d_model=512
 d_ff=$((d_model*4))
 d_kv=$((d_model/n_heads))
 
 python run_parallel.py \
+    --use_wandb \
     --group_name Parity_${n_train}_${n_test} \
     --exp_name coupled_plainscratchpad_maxpos${maxpos}_${n_layers}layers_${n_heads}heads \
     --seeds 0 1 2 3 \
     --seeds_data 0 1 \
-    --devices 1 \
+    --devices 1 2 3 4 5 7 \
     --num_exp_per_device 8 \
     --overrides \
-        project_name="Rebuttal: Position Coupling" \
+        project_name="ICLR2025 Focus on Less to Achieve More" \
         model.position_encoding_type=abs_learned \
         model.num_layers=$n_layers \
         model.num_heads=$n_heads \
@@ -44,6 +45,6 @@ python run_parallel.py \
         training.batch_size_train=20 \
         training.batch_size_eval=100 \
         training.n_steps=50000 \
-        training.optimizer.lr=0.0001 \
+        training.optimizer.lr=0.00003 \
         training.optimizer.weight_decay=0 \
 
