@@ -73,14 +73,14 @@ def evaluate(args):
 
     # get pretrained model
     model_path = os.path.join(logging_path, f'last_{model_name}.pt')
-    if cfg.get('best', False) or not os.path.exists(model_path):
+    if cfg.get('best', False):
         print("Testing Best Model")
         mode = 'best'
         model_path = os.path.join(logging_path, f'best_{model_name}.pt')
     if model_path.startswith(logging_path+'/last'):
         print("Testing Last Model")
         mode = 'last'
-    if not os.path.exists(os.path.join(model_path)):
+    if not os.path.exists(model_path):
         print("No model exists... Returning...")
         return
     if os.path.exists(os.path.join(logging_path, f'performances_EVAL_{mode}.json')):

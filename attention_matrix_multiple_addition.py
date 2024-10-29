@@ -195,7 +195,6 @@ def evaluate(args):
         #     fig.tight_layout()
         #     fig.savefig(f'{folder}/scores_layer{layer_idx}_head{head_idx}.pdf')
         #     plt.close()
-        if layer_idx < 5: continue
         ## Attention matrices (after softmax)
         att_heads = att_probs_sum[layer_idx] / num_items
         for head_idx, att in tqdm(enumerate(att_heads), total=cfg.model.num_heads, desc=f'layer{layer_idx} (probs)...'):
@@ -214,7 +213,7 @@ def evaluate(args):
             # ax.get_yticklabels()[0].set_fontsize(10)
             ax.set_aspect('equal')
 
-            ax.set_title(title, weight="bold", fontsize=16)
+            ax.set_title(title.replace('?', str(layer_idx+1)).replace('!', str(head_idx+1)), weight="bold", fontsize=16)
             fig.tight_layout()
             fig.savefig(f'{folder}/probs_layer{layer_idx}_head{head_idx}.pdf')
             plt.close()

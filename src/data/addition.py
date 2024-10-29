@@ -170,7 +170,7 @@ class AdditionDatasetWithCoupledPositions(AdditionDataset):
             padding=False,
             pad_token='0',
             randomize=True,
-            max_position=22,  # max_pos >= len(operand)+2 
+            max_position=23,
             vanilla=False,
             **kwargs
         ):

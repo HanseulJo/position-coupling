@@ -1,18 +1,15 @@
-# Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers
+# Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure
 
 Github repository for:
-* Hanseul Cho, Jaeyoung Cha, Pranjal Awasthi, Srinadh Bhojanapalli, Anupam Gupta, and Chulhee Yun. "Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers." NeurIPS 2024 🥳
-* Hanseul Cho, Jaeyoung Cha, Srinadh Bhojanapalli, and Chulhee Yun. "Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count." arXiv preprint.
+* Hanseul Cho, Jaeyoung Cha, Pranjal Awasthi, Srinadh Bhojanapalli, Anupam Gupta, and Chulhee Yun. "Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure." NeurIPS 2024. 🥳 [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
+* Hanseul Cho, Jaeyoung Cha, Srinadh Bhojanapalli, and Chulhee Yun. "Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count." arXiv preprint. [arxiv.org/abs/2410.15787](https://arxiv.org/abs/2410.15787)
 
-## Paper
-
-Link to our first paper: [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
 
 ## Citations
 
 ```bibtex
 @inproceedings{cho2024position,
-    title={Position Coupling: Leveraging Task Structure for Improved Length Generalization of Transformers}, 
+    title={Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure}, 
     author={Hanseul Cho and Jaeyoung Cha and Pranjal Awasthi and Srinadh Bhojanapalli and Anupam Gupta and Chulhee Yun},
     booktitle={Advances in Neural Information Processing Systems},
     volume={37},
@@ -22,8 +19,8 @@ Link to our first paper: [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.2
 @article{cho2024position,
     title={Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count}, 
     author={Hanseul Cho and Jaeyoung Cha and Srinadh Bhojanapalli and Chulhee Yun},
-    journal={arXiv preprint},
-    year={2024}
+    journal={arXiv preprint arXiv:2410.15787},
+    year={2024},
 }
 ```
 
