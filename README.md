@@ -16,7 +16,7 @@ Github repository for:
     year={2024}
 }
 
-@article{cho2024position,
+@article{cho2024arithmetic,
     title={Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count}, 
     author={Hanseul Cho and Jaeyoung Cha and Srinadh Bhojanapalli and Chulhee Yun},
     journal={arXiv preprint arXiv:2410.15787},
