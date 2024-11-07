@@ -18,26 +18,21 @@ d_kv=$((d_model/n_heads))
 n_data=500000
 bs=400
 
-maxpos_d=40
-maxpos_o=40
-
 layernorm=rmsnorm
 norm_pos=pre_post
 act=gated-gelu
 
 
-## NoPE, scratchpad ##
-
+## FIRE, scratchpad ##
 python run_parallel.py \
-    --use_wandb \
     --group_name MultipleAdditionScratchpad_di${n_train}_${n_test}_op${m_train}_${m_test} \
-    --exp_name NoPE_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
+    --exp_name FIRE_pad_revout_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
     --seeds 0 1 \
-    --seeds_data 0 1 \
+    --seeds_data 0 1  \
     --devices 3 4 5 7 \
     --num_exp_per_device 1 \
     --overrides \
-        model.position_encoding_type=none \
+        model.position_encoding_type=fire \
         model.num_layers=$n_layers \
         model.num_heads=$n_heads \
         model.normalization_layer=$layernorm \
@@ -85,18 +80,16 @@ python run_parallel.py \
         training.optimizer.weight_decay=$wd
 
 
-## NoPE, no scratchpad ##
-
+## FIRE, no scratchpad ##
 python run_parallel.py \
-    --use_wandb \
     --group_name MultipleAddition_di${n_train}_${n_test}_op${m_train}_${m_test} \
-    --exp_name NoPE_noCoT_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
+    --exp_name FIRE_noCoT_pad_revout_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
     --seeds 0 1 \
     --seeds_data 0 1 \
     --devices 3 4 5 7 \
-    --num_exp_per_device 2 \
+    --num_exp_per_device 1 \
     --overrides \
-        model.position_encoding_type=none \
+        model.position_encoding_type=fire \
         model.num_layers=$n_layers \
         model.num_heads=$n_heads \
         model.normalization_layer=$layernorm \
@@ -110,6 +103,7 @@ python run_parallel.py \
         task.reverse_input=False \
         task.reverse_output=True \
         task.reverse_output_order=False \
+        task.padding=True \
         task.train.min_n_digits=1 \
         task.train.max_n_digits=$n_train \
         task.train.min_n_operands=2 \

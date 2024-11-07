@@ -329,25 +329,77 @@ def build_alibi_tensor(
     return alibi.reshape(batch_size * num_heads, 1, seq_length).to(dtype)
 
 
-class Fire(nn.Module):
-    def __init__(self, d_hidden, num_heads):
+# class Fire(nn.Module):
+#     def __init__(self, d_hidden, num_heads):
+#         super().__init__()
+#         self.d_hidden = d_hidden
+#         self.num_heads = num_heads
+
+#         self.nets = nn.ModuleList([
+#             nn.Sequential(
+#                 nn.Linear(1, self.d_hidden, bias=False),
+#                 nn.ReLU(),
+#                 nn.Linear(self.d_hidden, self.d_hidden, bias=False),
+#                 nn.ReLU(),
+#                 nn.Linear(self.d_hidden, 1, bias=False)
+#             ) for _ in range(self.num_heads)
+#         ])
+
+#     def forward(self, x):
+#         x = x.unsqueeze(-1)
+#         output = torch.cat([
+#             module(x) for module in self.nets
+#         ], dim=-1)
+#         return output
+
+class FIRE(nn.Module):
+    def __init__(self, num_heads, mlp_hidden, c0=0.1, L0_sqrt=16., eps=1e-6):
         super().__init__()
-        self.d_hidden = d_hidden
         self.num_heads = num_heads
+        self.mlp_hidden = mlp_hidden
+        self.eps = eps
 
-        self.nets = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(1, self.d_hidden, bias=False),
-                nn.ReLU(),
-                nn.Linear(self.d_hidden, self.d_hidden, bias=False),
-                nn.ReLU(),
-                nn.Linear(self.d_hidden, 1, bias=False)
-            ) for _ in range(self.num_heads)
-        ])
+        self.net = nn.Sequential(
+            nn.Linear(1, self.mlp_hidden, bias=False),
+            nn.ReLU(),
+            nn.Linear(self.mlp_hidden, self.mlp_hidden, bias=False),
+            nn.ReLU(),
+            nn.Linear(self.mlp_hidden, self.num_heads, bias=False)
+        )
 
-    def forward(self, x):
-        x = x.unsqueeze(-1)
-        output = torch.cat([
-            module(x) for module in self.nets
-        ], dim=-1)
-        return output
+        self.c = nn.Parameter(torch.tensor(c0))
+        self.L_sqrt = nn.Parameter(torch.tensor(L0_sqrt))
+
+        self.cached_matrix = None
+        self.cached_seq_len = None
+
+    def forward(self, x: torch.Tensor, q_pos=None, k_pos=None):
+        # x : (batch_size, n_heads, query_length, key_length)
+        # q_pos : (batch_size, query_length)
+        # k_pos : (batch_size, key_length)
+        seq_len_q = x.size(-2)
+        seq_len_k = x.size(-1)
+        
+        if self.cached_seq_len != seq_len_k or (q_pos is not None and k_pos is not None):
+            if q_pos is None or k_pos is None:
+                q_pos = torch.arange(seq_len_q, device=x.device)[None,:]  # i
+                k_pos = torch.arange(seq_len_k, device=x.device)[None,:]  # j
+            rel_distance = q_pos[:,:,None] - k_pos[:,None,:]  # i-j, (batch_size, query_length, key_length)
+            rel_distance.clamp_min_(0)  # max{i-j, 0}
+            rel_distance = rel_distance.type_as(x)
+            self.cached_seq_len = seq_len_k
+            self.cached_matrix = rel_distance
+        else:
+            rel_distance = self.cached_matrix
+
+        self.L_sqrt = self.L_sqrt.to(x.device)
+        rel_distance_max, _ = torch.max(rel_distance, dim=-1) # i, (batch_size, query_length)
+        rel_distance_max.clamp_max_(self.L_sqrt.square()) # max{L, i}
+
+        self.c = self.c.to(x.device)
+        rel_distance = torch.log(torch.abs(self.c * rel_distance) + 1)  # (batch_size, query_length, key_length)
+        rel_distance_max = torch.log(torch.abs(self.c * rel_distance_max) + 1).unsqueeze(-1)  # (batch_size, query_length, 1)
+        normalized_distance = rel_distance / (rel_distance_max + self.eps)  # (batch_size, query_length, key_length)
+        position_bias = self.net(normalized_distance.unsqueeze(-1)) # (batch_size, query_length, key_length, num_heads)
+
+        return position_bias.permute([0, 3, 1, 2]) # (batch_size, num_heads, query_length, key_length, num_heads)

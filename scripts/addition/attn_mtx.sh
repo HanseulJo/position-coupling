@@ -1,53 +1,160 @@
-cd ..
+cd ../..
 
-n_train=5
-n_layers=1
-n_heads=2
-norm_type=rmsnorm
-norm_pos=pre_post
-act=gated-gelu
-lr=0.00005
-wd=0
+n_train=30
+n_test=200
+n_layers=6
+n_heads=8
+maxpos=203
+lr=0.00003
 
-d_kv=$((512/n_heads))
-
-maxpos=17
-n_test=$((maxpos-2))
-for seed in 2; do
-for seed_data in 1; do
-for n_digits in 6 7; do
+# nopad_plain
+for seed in 0 1 2 3; do
+for seed_data in 0 1; do
+for n_digits in 10 20 30 40; do
     python attention_matrix.py \
         --n_digits $n_digits \
+        --compile \
+        --title "Attention Pattern of layer ?, head ! \(Position Coupling: Zero-Padding X Reverse X)" \
         --overrides \
-            +best=True \
-            device=cuda:0 \
+            ++best=False \
+            device=cuda:2 \
             seed=$seed \
             seed_data=$seed_data \
             group_name=Addition_${n_train}_${n_test} \
-            exp_name=coupled_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_${act}_${norm_pos}_${norm_type}_LR${lr}_WD${wd} \
+            exp_name=coupled_nopad_plain_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_LR${lr} \
             task=addition_coupled \
-            task.max_position=$maxpos \
-            task.train.n_data=1 \
-            task.train.min_n_digits=1 \
-            task.train.max_n_digits=$n_train \
-            task.val.n_data=1 \
-            task.val_long.min_n_digits=$n_train \
-            task.val_long.max_n_digits=$n_train \
+            task.reverse_input=False \
+            task.reverse_output=False \
+            task.padding=False \
             task.val_long.n_data=10000 \
-            task.val_long.min_n_digits=$n_test \
-            task.val_long.max_n_digits=$n_test \
-            model.position_encoding_type=abs_learned \
-            model.num_layers=$n_layers \
-            model.num_heads=$n_heads \
-            model.normalization_layer=$norm_type \
-            model.layer_norm_position=$norm_pos \
-            model.feed_forward_proj=$act \
-            model.d_ff=2048 \
-            model.d_kv=$d_kv \
-            model.n_positions=128 \
-            training.batch_size_eval=100;
+            training.batch_size_eval=50;
 done
 done
 done
-# done
-# done
+
+# nopad_revall
+for seed in 0 1 2 3; do
+for seed_data in 0 1; do
+for n_digits in 10 20 30 40; do
+    python attention_matrix.py \
+        --n_digits $n_digits \
+        --compile \
+        --title "Attention Pattern of layer ?, head ! \(Position Coupling: Zero-Padding X Reverse Query&Answer)" \
+        --overrides \
+            ++best=False \
+            device=cuda:2 \
+            seed=$seed \
+            seed_data=$seed_data \
+            group_name=Addition_${n_train}_${n_test} \
+            exp_name=coupled_nopad_revall_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_LR${lr} \
+            task=addition_coupled \
+            task.reverse_input=True \
+            task.reverse_output=True \
+            task.padding=False \
+            task.val_long.n_data=10000 \
+            training.batch_size_eval=50;
+done
+done
+done
+
+# nopad_revout
+for seed in 0 1 2 3; do
+for seed_data in 0 1; do
+for n_digits in 10 20 30 40; do
+    python attention_matrix.py \
+        --n_digits $n_digits \
+        --compile \
+        --title "Attention Pattern of layer ?, head ! \(Position Coupling: Zero-Padding X Reverse Answer)" \
+        --overrides \
+            ++best=False \
+            device=cuda:2 \
+            seed=$seed \
+            seed_data=$seed_data \
+            group_name=Addition_${n_train}_${n_test} \
+            exp_name=coupled_nopad_revout_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_LR${lr} \
+            task=addition_coupled \
+            task.reverse_input=False \
+            task.reverse_output=True \
+            task.padding=False \
+            task.val_long.n_data=10000 \
+            training.batch_size_eval=50;
+done
+done
+done
+
+
+
+# pad_plain
+for seed in 0 1 2 3; do
+for seed_data in 0 1; do
+for n_digits in 10 20 30 40; do
+    python attention_matrix.py \
+        --n_digits $n_digits \
+        --compile \
+        --title "Attention Pattern of layer ?, head ! \(Position Coupling: Zero-Padding O Reverse X)" \
+        --overrides \
+            ++best=False \
+            device=cuda:2 \
+            seed=$seed \
+            seed_data=$seed_data \
+            group_name=Addition_${n_train}_${n_test} \
+            exp_name=coupled_pad_plain_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_LR${lr} \
+            task=addition_coupled \
+            task.reverse_input=False \
+            task.reverse_output=False \
+            task.padding=True \
+            task.val_long.n_data=10000 \
+            training.batch_size_eval=50;
+done
+done
+done
+
+# pad_revall
+for seed in 0 1 2 3; do
+for seed_data in 0 1; do
+for n_digits in 10 20 30 40; do
+    python attention_matrix.py \
+        --n_digits $n_digits \
+        --compile \
+        --title "Attention Pattern of layer ?, head ! \(Position Coupling: Zero-Padding O Reverse Query&Answer)" \
+        --overrides \
+            ++best=False \
+            device=cuda:2 \
+            seed=$seed \
+            seed_data=$seed_data \
+            group_name=Addition_${n_train}_${n_test} \
+            exp_name=coupled_pad_revall_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_LR${lr} \
+            task=addition_coupled \
+            task.reverse_input=True \
+            task.reverse_output=True \
+            task.padding=True \
+            task.val_long.n_data=10000 \
+            training.batch_size_eval=50;
+done
+done
+done
+
+# pad_revout
+for seed in 0 1 2 3; do
+for seed_data in 0 1; do
+for n_digits in 10 20 30 40; do
+    python attention_matrix.py \
+        --n_digits $n_digits \
+        --compile \
+        --title "Attention Pattern of layer ?, head ! \(Position Coupling: Zero-Padding O Reverse Answer)" \
+        --overrides \
+            ++best=False \
+            device=cuda:2 \
+            seed=$seed \
+            seed_data=$seed_data \
+            group_name=Addition_${n_train}_${n_test} \
+            exp_name=coupled_pad_revout_maxpos${maxpos}_${n_layers}layers_${n_heads}heads_LR${lr} \
+            task=addition_coupled \
+            task.reverse_input=False \
+            task.reverse_output=True \
+            task.padding=True \
+            task.val_long.n_data=10000 \
+            training.batch_size_eval=50;
+done
+done
+done

@@ -168,14 +168,13 @@ class CustomT5Attention(T5Attention):
 
         elif self.position_encoding_type == POSITION_ENCODING_FIRE:
             self.d_fire = getattr(config, 'd_fire', 32)
-            self.fire_model = Fire(
-                self.d_fire, 
-                self.n_heads
+            self.fire_model = FIRE(
+                num_heads=self.n_heads,
+                mlp_hidden=self.d_fire, 
             )
-            for module in self.fire_model.nets:
-                nn.init.normal_(module[0].weight, mean=0.0, std=self.factor * 1.0)
-                nn.init.normal_(module[2].weight, mean=0.0, std=self.factor * (self.d_fire**-0.5))
-                nn.init.normal_(module[4].weight, mean=0.0, std=self.factor * (self.d_fire**-0.5))
+            nn.init.normal_(self.fire_model.net[0].weight, mean=0.0, std=self.factor * 1.0)
+            nn.init.normal_(self.fire_model.net[2].weight, mean=0.0, std=self.factor * (self.d_fire**-0.5))
+            nn.init.normal_(self.fire_model.net[4].weight, mean=0.0, std=self.factor * (self.d_fire**-0.5))
 
         self.pruned_heads = set()
         self.gradient_checkpointing = False
@@ -189,14 +188,14 @@ class CustomT5Attention(T5Attention):
         x = x_padded[:, :, 1:, :].view_as(x)
         return x
 
-    def compute_bias_fire(self, query_length, key_length, device=None):
-        """Compute binned relative position bias for FIRE"""
-        context_position = torch.arange(start=1, end=query_length+1, dtype=torch.bfloat16, device=device)[:, None]
-        memory_position = torch.arange(start=1, end=key_length+1, dtype=torch.bfloat16, device=device)[None, :]
-        relative_position = torch.div(- context_position + memory_position, context_position)  # shape (query_length, key_length)
-        values = self.fire_model(relative_position)  # shape (query_length, key_length, num_heads)
-        values = values.permute([2, 0, 1]).unsqueeze(0)  # shape (1, num_heads, query_length, key_length)
-        return values
+    # def compute_bias_fire(self, query_length, key_length, device=None):
+    #     """Compute binned relative position bias for FIRE"""
+    #     context_position = torch.arange(start=1, end=query_length+1, dtype=torch.bfloat16, device=device)[:, None]
+    #     memory_position = torch.arange(start=1, end=key_length+1, dtype=torch.bfloat16, device=device)[None, :]
+    #     relative_position = torch.div(- context_position + memory_position, context_position)  # shape (query_length, key_length)
+    #     values = self.fire_model(relative_position)  # shape (query_length, key_length, num_heads)
+    #     values = values.permute([2, 0, 1]).unsqueeze(0)  # shape (1, num_heads, query_length, key_length)
+    #     return values
 
     def forward(
         self,
@@ -497,8 +496,11 @@ class CustomT5Attention(T5Attention):
 
         elif self.position_encoding_type == POSITION_ENCODING_FIRE:
             scores = torch.matmul(query_states, key_states.transpose(3, 2))
+            attention_output_dict["scores_before"] = scores
+
             if position_bias is None:
-                position_bias = self.compute_bias_fire(seq_length, seq_length, scores.device)
+                # position_bias = self.compute_bias_fire(seq_length, seq_length, scores.device)
+                position_bias = self.fire_model(scores)
 
             if mask is not None:
                 position_bias = position_bias + mask

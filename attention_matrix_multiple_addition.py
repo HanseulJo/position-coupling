@@ -92,11 +92,8 @@ def evaluate(args):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    cfg.task.val_long.min_n_digits = n_digits
-    cfg.task.val_long.max_n_digits = n_digits
     print(f"N={n_digits}")
     # sns.set_theme(font_scale=1.5/np.sqrt(n_digits))
-
 
     cfg.task.train.min_n_digits=1
     cfg.task.train.max_n_digits=1
@@ -161,8 +158,8 @@ def evaluate(args):
             acc = instancewise_accuracy.item() * 100
             batchsize = len(model_inputs['input_ids'])
             instancewise_accuracy_sum += instancewise_accuracy * batchsize
-            num_items += batchsize
             # num_items += torch.sum(acc_arr).item()
+            num_items += batchsize
 
         # if acc == 0:  continue
 
@@ -195,6 +192,7 @@ def evaluate(args):
         #     fig.tight_layout()
         #     fig.savefig(f'{folder}/scores_layer{layer_idx}_head{head_idx}.pdf')
         #     plt.close()
+
         ## Attention matrices (after softmax)
         att_heads = att_probs_sum[layer_idx] / num_items
         for head_idx, att in tqdm(enumerate(att_heads), total=cfg.model.num_heads, desc=f'layer{layer_idx} (probs)...'):
