@@ -62,7 +62,9 @@ def run(args):
         device = torch.device('cpu')
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
-        device = torch.device(cfg.device)
+        # device = torch.device(cfg.device)
+        os.environ["CUDA_VISIBLE_DEVICES"]= cfg.device.split(":")[-1]
+        device = torch.device('cuda')
         device_type = 'cuda'
     
     # Data type & device

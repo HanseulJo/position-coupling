@@ -188,15 +188,6 @@ class CustomT5Attention(T5Attention):
         x = x_padded[:, :, 1:, :].view_as(x)
         return x
 
-    # def compute_bias_fire(self, query_length, key_length, device=None):
-    #     """Compute binned relative position bias for FIRE"""
-    #     context_position = torch.arange(start=1, end=query_length+1, dtype=torch.bfloat16, device=device)[:, None]
-    #     memory_position = torch.arange(start=1, end=key_length+1, dtype=torch.bfloat16, device=device)[None, :]
-    #     relative_position = torch.div(- context_position + memory_position, context_position)  # shape (query_length, key_length)
-    #     values = self.fire_model(relative_position)  # shape (query_length, key_length, num_heads)
-    #     values = values.permute([2, 0, 1]).unsqueeze(0)  # shape (1, num_heads, query_length, key_length)
-    #     return values
-
     def forward(
         self,
         hidden_states,
@@ -499,7 +490,6 @@ class CustomT5Attention(T5Attention):
             attention_output_dict["scores_before"] = scores
 
             if position_bias is None:
-                # position_bias = self.compute_bias_fire(seq_length, seq_length, scores.device)
                 position_bias = self.fire_model(scores)
 
             if mask is not None:
@@ -809,8 +799,16 @@ class CustomT5Stack(T5Stack):
                 for i in range(config.num_layers)
             ]
         )
-        # self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.final_layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        if config.normalization_layer == 't5layernorm':
+            norm = T5LayerNorm
+        elif config.normalization_layer == 'layernorm':
+            norm = nn.LayerNorm
+        elif config.normalization_layer == 'rmsnorm':
+            norm = RMSNorm
+        else:
+            raise ValueError(f"{config.normalization_layer} is not implemented normalization layer."
+                             "Useable options: ['layernorm', 't5layernorm', 'rmsnorm'].")
+        self.final_layer_norm = norm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
 
         self.position_dim = getattr(config, 'd_positions', None)
@@ -839,7 +837,7 @@ class CustomT5Stack(T5Stack):
                 else:
                     self.wpe = nn.ModuleList([nn.Embedding(maxpos, config.d_model) for _ in range(self.position_dim)])
             
-        if self.position_encoding_type == POSITION_ENCODING_ABS_SINUSOID:
+        elif self.position_encoding_type == POSITION_ENCODING_ABS_SINUSOID:
             self.wpe = FixedAbsolutePositionalEmbedding(config.d_model)
 
         elif self.position_encoding_type == POSITION_ENCODING_ROTARY_NEW:
@@ -989,8 +987,6 @@ class CustomT5Stack(T5Stack):
             POSITION_ENCODING_ABS_LEARNED,
             POSITION_ENCODING_ABS_SINUSOID,
         ]:  
-            ## To support multi-dimensional position ids (of shape (d_positions, batch, seq_len)),
-            ## We commented out this part!
             if position_ids is not None and position_ids.dim() <= 2:
                 position_ids = position_ids.view(-1, input_shape[-1])
 
@@ -1366,7 +1362,8 @@ class CustomDecoderOnlyT5(T5PreTrainedModel):
             return
 
         self.config.eos_token_id = tokenizer.eos_token_id
-        self.config.bos_token_id = self.config.eos_token_id
+        self.config.bos_token_id = self.config.eos_token_id if not hasattr(tokenizer, 'bos_token_id') else tokenizer.bos_token_id
+        self.config.pad_token_id = self.config.eos_token_id if not hasattr(tokenizer, 'pad_token_id') else tokenizer.pad_token_id
 
         if (
             len(tokenizer) > self.shared.num_embeddings
@@ -1529,4 +1526,3 @@ class CustomDecoderOnlyT5(T5PreTrainedModel):
             for layer_past in past
         )
     
-

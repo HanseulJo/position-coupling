@@ -116,6 +116,10 @@ class AdditionDataset(ArithmeticDataset):
             reverse_output=False,
             padding=False,
             pad_token=SpecialToken.pad,
+            min_n_digit_A=None,
+            max_n_digit_A=None,
+            min_n_digit_B=None,
+            max_n_digit_B=None,
             **kwargs
         ):
         super().__init__()
@@ -128,8 +132,16 @@ class AdditionDataset(ArithmeticDataset):
             if len(self.inputs) >= n_data: break
             numbers = []
             # uniform sampling of n_digits of two numbers
-            n_digits_arr = torch.randint(low=min_n_digits, 
-                                        high=max_n_digits+1, size=(2, ))
+            if min_n_digit_A is None or \
+                max_n_digit_A is None or \
+                min_n_digit_B is None or \
+                max_n_digit_B is None:
+                n_digits_arr = torch.randint(low=min_n_digits, high=max_n_digits+1, size=(2, ))
+            else:
+                n_digits_arr = torch.tensor([
+                    torch.randint(low=min_n_digit_A, high=max_n_digit_A+1, size=(1,)).item(),
+                    torch.randint(low=min_n_digit_B, high=max_n_digit_B+1, size=(1,)).item(),
+                ])
             for i in range(2):
                 n_digits = n_digits_arr[i].item()
                 # uniform sampling of a number

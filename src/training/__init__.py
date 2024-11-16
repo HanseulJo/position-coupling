@@ -20,5 +20,5 @@ def set_seed(seed: int, device_type='cuda'):
     # elif device_type == 'tpu':
     #     import torch_xla.core.xla_model as xm
     #     xm.set_rng_state(seed)
-    torch.use_deterministic_algorithms(True) # Needed for reproducible results
+    torch.use_deterministic_algorithms(mode=True, warn_only=True) # Needed for reproducible results
     
