@@ -16,7 +16,7 @@ filterwarnings("ignore")
 from src.tokenization import build_tokenizer
 from src.data import build_dataset, build_loader
 from src.model import build_model_from_scratch, DECODER_BASED
-from src.evaluate import get_tokenwise_accuracy, get_instancewise_accuracy, get_parity_accuracy
+from src.evaluate import get_tokenwise_accuracy, get_instancewise_accuracy, get_parity_accuracy, get_answerwise_accuracy
 
 def evaluate(args):    
     args = DotMap(args)
@@ -25,7 +25,8 @@ def evaluate(args):
     overrides = args.overrides
     min_n_digits = args.min_n_digits
     max_n_digits = args.max_n_digits
-    eval_step = args.step
+    eval_step = args.step_digits
+    compile = args.compile
 
     # Hydra Compose
     initialize(version_base=None, config_path=config_path) 
@@ -44,7 +45,9 @@ def evaluate(args):
         device = torch.device('cpu')
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
-        device = torch.device(cfg.device)
+        # device = torch.device(cfg.device)
+        os.environ["CUDA_VISIBLE_DEVICES"]= cfg.device.split(":")[-1]
+        device = torch.device('cuda')
         device_type = 'cuda'
 
     # Data type
@@ -55,7 +58,7 @@ def evaluate(args):
     # Training Misc
     model_name = cfg.model.model_name
     logging_path = f"log/{cfg.group_name}/{cfg.exp_name}/seed{cfg.seed}_seedData{cfg.seed_data}"
-    print(logging_path)
+    # print(logging_path)
 
     # Tokenizer
     if "IndexHints" in cfg.task.train.dataset_cls:
@@ -65,35 +68,48 @@ def evaluate(args):
     if "IndexHints" in cfg.task.train.dataset_cls:
         id_index_hint_begin = tokenizer.token_to_id('10')
         id_index_hint_end = tokenizer.token_to_id(str(int(cfg.task.max_position)+9))
+    id_0 = tokenizer.token_to_id('0')
+    pad_token_id = tokenizer.pad_token_id
+    eos_token_id = tokenizer.eos_token_id
+    sep_token_id = tokenizer.token_to_id('>') if ('>' in tokenizer.get_vocab()) else tokenizer.token_to_id('=')
     
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
-    if getattr(cfg.model, 'compile', True):
+    if compile:
         model = torch.compile(model)
 
     # get pretrained model
     model_path = os.path.join(logging_path, f'last_{model_name}.pt')
     if cfg.get('best', False):
-        print("Testing Best Model")
+        print("Testing Best Model:", logging_path)
         mode = 'best'
         model_path = os.path.join(logging_path, f'best_{model_name}.pt')
     if model_path.startswith(logging_path+'/last'):
-        print("Testing Last Model")
+        print("Testing Last Model:", logging_path)
         mode = 'last'
     if not os.path.exists(model_path):
-        print("No model exists... Returning...")
+        print("No model exists... Returning...:", logging_path)
         return
-    if os.path.exists(os.path.join(logging_path, f'performances_EVAL_{mode}.json')):
-        print("Evaluation is already done.")
-        return
-    model.load_state_dict(torch.load(model_path, map_location=torch.device(cfg.device)))
+    # if os.path.exists(os.path.join(logging_path, f'performances_EVAL_{mode}.json')):
+    #     print("Evaluation is already done.:", logging_path)
+    #     return
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
+    d_positions = getattr(cfg.model, 'd_positions', None)
     is_parity = cfg.task.train.dataset_cls.startswith("Parity")
+
+    cfg.task.train.min_n_digits=1
+    cfg.task.train.max_n_digits=1
+    cfg.task.train.n_data=1
+    cfg.task.val.min_n_digits=1
+    cfg.task.val.max_n_digits=1
+    cfg.task.val.n_data=1
 
     losses = []
     tokenwise_accuracies = []
     instancewise_accuracies = []
+    answerwise_accuracies = []
     if is_parity:
         parity_accuracies = []
 
@@ -121,6 +137,7 @@ def evaluate(args):
         tokenwise_correct_sum = 0
         num_tokens_sum = 0
         instancewise_correct_sum = 0
+        answerwise_correct_sum = 0
         if is_parity:
             parity_correct_sum = 0
         for batch_idx, model_inputs in enumerate(pbar):
@@ -139,28 +156,51 @@ def evaluate(args):
                 loss_sum += loss * batchsize
                 logits = model_output.logits
                 pred = torch.argmax(logits, dim=-1)
-                tokenwise_correct, num_tokens = get_tokenwise_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False)
-                instancewise_correct, _ = get_instancewise_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False)
+                # if batch_idx < 10 and d_positions is None:
+                #     print(phase.upper())
+                #     print("Input     :", model_inputs['input_ids'][:3].cpu().numpy() - id_0)
+                #     if 'position_ids' in model_inputs:
+                #         print("Position  :", model_inputs['position_ids'][:3].cpu().numpy())
+                #     if model_name in DECODER_BASED:
+                #         lab = model_inputs['labels'][:3, 1:]
+                #         print("Prediction:", pred[:3, :-1][lab != -100].cpu().numpy() - id_0)
+                #     else:
+                #         lab = model_inputs['labels'][:3]
+                #         print("Prediction:", pred[:3][lab != -100].cpu().numpy() - id_0)
+                #     print("Label     :", lab[lab != -100].cpu().numpy() - id_0)
+                tokenwise_correct, num_tokens = get_tokenwise_accuracy(cfg, pred, model_inputs['labels'], pad_token_id, division=False)
+                instancewise_correct, _ = get_instancewise_accuracy(cfg, pred, model_inputs['labels'], pad_token_id, division=False)
+                answerwise_correct, _ = get_answerwise_accuracy(cfg, pred, model_inputs['labels'], eos_token_id=eos_token_id, sep_token_id=sep_token_id, division=False)
                 tokenwise_correct_sum += tokenwise_correct.item()
                 num_tokens_sum += num_tokens.item()
                 instancewise_correct_sum += instancewise_correct.item()
+                answerwise_correct_sum += answerwise_correct.item()
                 if is_parity:
-                    parity_correct, _, arr = get_parity_accuracy(cfg, pred, model_inputs['labels'], tokenizer.pad_token_id, division=False, return_arr=True)
+                    parity_correct, _ = get_parity_accuracy(cfg, pred, model_inputs['labels'], eos_token_id, division=False, return_arr=False)
                     parity_correct_sum += parity_correct.item()                    
-                pbar.set_description(f"Loss:{loss:.3g} | TokenAcc:{tokenwise_correct/num_tokens:.3g} | InstAcc:{instancewise_correct/batchsize:.3g}" \
+                pbar.set_description(f"Loss:{loss:.3g}"
+                                     f" | TokenAcc:{tokenwise_correct/num_tokens:.3g}"
+                                     f" | InstAcc:{instancewise_correct/batchsize:.3g}"
+                                     f" | AnsAcc:{answerwise_correct/batchsize:.3g}" \
                                      + (f" | ParityAcc:{parity_correct/batchsize:.3g}" if is_parity else "")) 
         
         # Logging
         loss_avg = loss_sum/len(dataset[phase])
         tokenwise_accuracy_avg = (tokenwise_correct_sum/num_tokens_sum)
         instancewise_accuracy_avg = instancewise_correct_sum/len(dataset[phase])
+        answerwise_accuracy_avg = answerwise_correct_sum/len(dataset[phase])
         if is_parity:
             parity_accuracy_avg = parity_correct_sum/len(dataset[phase])
-        print(f"N={n_digits} Loss {loss_avg:.6f} TokenAcc {tokenwise_accuracy_avg:.6f} InstAcc {instancewise_accuracy_avg:.6f}" \
-              + (f" ParityAcc:{parity_accuracy_avg:.3g}" if is_parity else ""))
+        print(f"seed({cfg.seed},{cfg.seed_data}) N={n_digits}"
+              f" Loss {loss_avg:.6f}"
+              f" TokenAcc {tokenwise_accuracy_avg:.6f}"
+              f" InstAcc {instancewise_accuracy_avg:.6f}"
+              f" AnsAcc {answerwise_accuracy_avg:.6f}" \
+              + (f" ParityAcc:{parity_accuracy_avg:.3g}\n" if is_parity else "\n"))
         losses.append(loss_avg)
         tokenwise_accuracies.append(tokenwise_accuracy_avg)
         instancewise_accuracies.append(instancewise_accuracy_avg)
+        answerwise_accuracies.append(answerwise_accuracy_avg)
         if is_parity:
             parity_accuracies.append(parity_accuracy_avg)
     
@@ -170,7 +210,8 @@ def evaluate(args):
         'X': X.tolist(),
         'losses': losses[::-1],
         'tokenwise_accuracies': tokenwise_accuracies[::-1],
-        'instancewise_accuracies': instancewise_accuracies[::-1]
+        'instancewise_accuracies': instancewise_accuracies[::-1],
+        'answerwise_accuracies': answerwise_accuracies[::-1]
     }
     if is_parity:
         perf_dict['parity_accuracies'] = parity_accuracies[::-1]
@@ -184,7 +225,8 @@ if __name__ == '__main__':
     parser.add_argument('--config_name', type=str,  default='config')
     parser.add_argument('--min_n_digits',type=int,  default=1)
     parser.add_argument('--max_n_digits',type=int,  default=100)
-    parser.add_argument('--step',        type=int,  default=1)
+    parser.add_argument('--step_digits', type=int,  default=1)
+    parser.add_argument('--compile',   action='store_true')
     parser.add_argument('--overrides',   type=str,  default=[],  nargs='*')
     args = parser.parse_args()
 

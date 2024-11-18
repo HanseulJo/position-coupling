@@ -25,7 +25,6 @@ python evaluate_model_multiple_addition.py \
     --max_n_operands 30 \
     --step_digits 1 \
     --step_operands 1 \
-    --pad_offset 0 \
     --compile \
     --overrides \
         ++seed=$seed \

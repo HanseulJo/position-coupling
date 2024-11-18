@@ -2,18 +2,34 @@ import argparse
 import copy
 from itertools import product
 import multiprocessing as mp
-import run
+import evaluate_model
+import evaluate_model_multiple_addition
+import evaluate_model_multiplication
+import evaluate_model_heatmap
 import time
 import os 
 os.environ['PJRT_DEVICE'] = 'GPU'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--use_wandb', action='store_true')
     parser.add_argument('--config_path',    type=str,   default='./configs')
     parser.add_argument('--config_name',    type=str,   default='config')
+    parser.add_argument('--runner_name',    type=str,   default='evaluate_model')
     parser.add_argument('--group_name', type=str, default='test')
     parser.add_argument('--exp_name',   type=str, default='test')
+    parser.add_argument('--min_n_digits',type=int,  default=1)
+    parser.add_argument('--max_n_digits',type=int,  default=100)
+    parser.add_argument('--min_n_operands',  type=int,  default=2)
+    parser.add_argument('--max_n_operands',  type=int,  default=30)
+    parser.add_argument('--min_n_digits_1',type=int,  default=1)
+    parser.add_argument('--max_n_digits_1',type=int,  default=30)
+    parser.add_argument('--min_n_digits_2',  type=int,  default=1)
+    parser.add_argument('--max_n_digits_2',  type=int,  default=30)
+    parser.add_argument('--step_digits',     type=int,  default=1)
+    parser.add_argument('--step_operands',   type=int,  default=1)
+    parser.add_argument('--step_digits_1',     type=int,  default=1)
+    parser.add_argument('--step_digits_2',   type=int,  default=1)
+    parser.add_argument('--compile',   action='store_true')
     parser.add_argument('--seeds',      type=int, default=[0],  nargs='*')
     parser.add_argument('--seeds_data',      type=int, default=[0],  nargs='*')
     parser.add_argument('--devices',    type=int, default=[0],  nargs='*')
@@ -21,13 +37,12 @@ if __name__ == '__main__':
     parser.add_argument('--overrides',  type=str, default=[],   nargs='*')
     args = vars(parser.parse_args())
 
-    runner = run.run
+    runner = eval(args.pop('runner_name')).evaluate
 
     seeds = args.pop('seeds')
     seeds_data = args.pop('seeds_data')
     available_gpus = args.pop('devices')
     num_exp_per_device = args.pop('num_exp_per_device')
-    use_wandb = args.pop('use_wandb')
 
     experiments = []
     for seed, seed_data in product(seeds, seeds_data):
@@ -38,7 +53,6 @@ if __name__ == '__main__':
         exp['overrides'].append(f'exp_name={exp_name}')
         exp['overrides'].append(f'seed={seed}')
         exp['overrides'].append(f'seed_data={seed_data}')
-        exp['overrides'].append(f'use_wandb={use_wandb}')
         experiments.append(exp)
     
     print(experiments)

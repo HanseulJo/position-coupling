@@ -20,6 +20,7 @@ def get_tokenwise_accuracy(cfg, predictions, references, pad_token_id, division=
     else:
         return correct, samples
 
+
 def get_instancewise_accuracy(cfg, predictions, references, pad_token_id, division=True, return_arr=False):
     device = predictions.device
     references = references.to(device)
@@ -41,22 +42,82 @@ def get_instancewise_accuracy(cfg, predictions, references, pad_token_id, divisi
         if return_arr:
             return correct, samples, acc
         return correct, samples
-    
-def get_parity_accuracy(cfg, predictions, references, pad_token_id, division=True, return_arr=False):
+
+
+def get_parity_accuracy(cfg, predictions, references, eos_token_id, division=True, return_arr=False):
     device = predictions.device
     references = references.to(device)
     if cfg.model.model_name in DECODER_BASED:
         predictions = predictions[..., :-1]
         references = references[..., 1:]
-    # pad_mask = torch.logical_or(references == pad_token_id, references == -100)
-    # acc_mask = predictions == references
-    # mask = torch.logical_or(acc_mask, pad_mask)
-    acc = torch.stack([
-        torch.all(pred[ref != -100][-2:-1] == ref[ref != -100][-2:-1])
-        for pred, ref in zip(predictions, references)
-    ]).to(device)
-    correct = torch.sum(acc)
-    samples = len(acc)
+    
+    samples = references.size(0)
+    pad_mask_ref = references != -100
+
+    # compute is_answer: True if a token before eos.
+    is_eos_ref = references == eos_token_id
+    is_answer_ref = torch.cat([is_eos_ref[:, 1:], is_eos_ref[:, :1]], dim=1)
+    is_eos_pred = predictions == eos_token_id
+    is_answer_pred = torch.cat([is_eos_pred[:, 1:], is_eos_pred[:, :1]], dim=1)
+    
+    acc = []
+    for pred, ref, pred_mask, ref_mask, pad_mask in zip(predictions, references, is_answer_pred, is_answer_ref, pad_mask_ref):
+        p = pred[torch.logical_and(pred_mask, pad_mask)]
+        r = ref[ref_mask]
+        if p.size(0) == 0: p = pred[-1:]
+        acc.append((p[0]==r[0]).item())
+    
+    correct = torch.tensor(acc).sum()
+    accuracy = correct / samples
+    if division:
+        if return_arr:
+            return accuracy, acc
+        return accuracy
+    else:
+        if return_arr:
+            return correct, samples, acc
+        return correct, samples
+
+def get_answerwise_accuracy(cfg, predictions, references, eos_token_id, sep_token_id, division=True, return_arr=False):
+    device = predictions.device
+    references = references.to(device)
+    if cfg.model.model_name in DECODER_BASED:
+        predictions = predictions[..., :-1]
+        references = references[..., 1:]
+
+    samples = references.size(0)
+
+    # computing sep_mask: True for all tokens from the last sep
+    # given [_any_, sep, _nonsep_], 
+    # will have [False, ..., False, True, ..., True], where True's indicate the last sep & _nonsep_.
+    is_sep_ref = references == sep_token_id
+    is_sep_ref_cumsum = torch.cumsum(is_sep_ref.long(), dim=1)
+    sep_mask_ref = is_sep_ref_cumsum == is_sep_ref_cumsum[:, -1:]
+    is_sep_pred = predictions == sep_token_id
+    is_sep_pred_cumsum = torch.cumsum(is_sep_pred.long(), dim=1)
+    sep_mask_pred = is_sep_pred_cumsum == is_sep_pred_cumsum[:, -1:]
+
+    # computing eos_mask: True for all tokens before eos
+    # given [_noneos_, eos, _any_],
+    # will have [True, ..., True, False, ..., False], where True's indicate _noneos_.
+    is_eos_ref = references == eos_token_id
+    is_eos_ref_cummax, _ = torch.cummax(is_eos_ref.long(), dim=1)
+    eos_mask_ref = is_eos_ref_cummax == is_eos_ref_cummax[:, :1]
+    is_eos_pred = predictions == eos_token_id
+    is_eos_pred_cummax, _ = torch.cummax(is_eos_pred.long(), dim=1)
+    eos_mask_pred = is_eos_pred_cummax == is_eos_pred_cummax[:, :1]
+    
+    # computing is_answer: True for the answer tokens (no sep, no eos)
+    is_answer_ref = torch.logical_and(sep_mask_ref, eos_mask_ref)
+    is_answer_pred = torch.logical_and(sep_mask_pred, eos_mask_pred)
+
+    acc = []
+    for pred, ref, pred_mask, ref_mask in zip(predictions, references, is_answer_pred, is_answer_ref):
+        p = pred[pred_mask]
+        r = ref[ref_mask]
+        acc.append(p.size() == r.size() and (p==r).all())
+    
+    correct = torch.tensor(acc).sum()
     accuracy = correct / samples
     if division:
         if return_arr:

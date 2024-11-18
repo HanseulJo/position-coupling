@@ -799,14 +799,15 @@ class CustomT5Stack(T5Stack):
                 for i in range(config.num_layers)
             ]
         )
-        if config.normalization_layer == 't5layernorm':
+        norm_name = getattr(config, "final_norm", config.normalization_layer)
+        if norm_name == 't5layernorm':
             norm = T5LayerNorm
-        elif config.normalization_layer == 'layernorm':
+        elif norm_name == 'layernorm':
             norm = nn.LayerNorm
-        elif config.normalization_layer == 'rmsnorm':
+        elif norm_name == 'rmsnorm':
             norm = RMSNorm
         else:
-            raise ValueError(f"{config.normalization_layer} is not implemented normalization layer."
+            raise ValueError(f"{norm_name} is not implemented normalization layer."
                              "Useable options: ['layernorm', 't5layernorm', 'rmsnorm'].")
         self.final_layer_norm = norm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)

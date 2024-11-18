@@ -4,14 +4,14 @@ n_train=10
 n_test=20
 m_train=10
 m_test=20
-n_layers=6
-n_heads=8
+
 lr=0.00003
 wd=0
 d_model=1024
 n_data=500000
 bs=400
-clip=1
+n_layers=6
+n_heads=8
 d_ff=2048
 d_kv=$((d_model/n_heads)) 
 
@@ -25,7 +25,6 @@ python evaluate_model_multiple_addition.py \
     --max_n_operands 15 \
     --step_digits 1 \
     --step_operands 1 \
-    --pad_offset 0 \
     --compile \
     --overrides \
         ++seed=$seed \

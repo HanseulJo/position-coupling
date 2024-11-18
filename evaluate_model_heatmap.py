@@ -43,7 +43,9 @@ def evaluate(args):
         device = torch.device('cpu')
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
-        device = torch.device(cfg.device)
+        # device = torch.device(cfg.device)
+        os.environ["CUDA_VISIBLE_DEVICES"]= cfg.device.split(":")[-1]
+        device = torch.device('cuda')
         device_type = 'cuda'
 
     # Data type
@@ -67,7 +69,7 @@ def evaluate(args):
     
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
-    if getattr(cfg.model, 'compile', True):
+    if compile:
         model = torch.compile(model)
 
     # get pretrained model
@@ -146,7 +148,7 @@ def evaluate(args):
             loss_avg = loss_sum.item()/len(dataset[phase])
             tokenwise_accuracy_avg = (tokenwise_correct_sum/num_tokens_sum).item()
             instancewise_accuracy_avg = instancewise_correct_sum.item()/len(dataset[phase])
-            print(f"(A,B)=({n_digit_A},{n_digit_B}) Loss {loss_avg:.6f} TokenAcc {tokenwise_accuracy_avg:.6f} InstAcc {instancewise_accuracy_avg:.6f}")
+            print(f"seed({cfg.seed},{cfg.seed_data}) (A,B)=({n_digit_A},{n_digit_B}) Loss {loss_avg:.6f} TokenAcc {tokenwise_accuracy_avg:.6f} InstAcc {instancewise_accuracy_avg:.6f}")
             losses_.append(loss_avg)
             tokenwise_accuracies_.append(tokenwise_accuracy_avg)
             instancewise_accuracies_.append(instancewise_accuracy_avg)
