@@ -77,7 +77,8 @@ def evaluate(args):
     id_0 = tokenizer.token_to_id('0')
     pad_token_id = tokenizer.pad_token_id
     eos_token_id = tokenizer.eos_token_id
-    sep_token_id = tokenizer.token_to_id('>') if ('>' in tokenizer.get_vocab()) else tokenizer.token_to_id('=')
+    eq_token_id = tokenizer.token_to_id('=')
+    sep_token_id = tokenizer.token_to_id('>') if ('>' in tokenizer.get_vocab()) else eq_token_id
     
     # Model
     model = build_model_from_scratch(cfg, tokenizer, device)
