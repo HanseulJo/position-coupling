@@ -44,17 +44,12 @@ def evaluate(args):
         dict_cfg = json.load(f)
     for k in dict_cfg['model']:
         cfg.model[k] = dict_cfg['model'][k]
-        # print(k, dict_cfg['model'][k], eval(f"cfg.model.{k}"))
-    for k in dict_cfg['task']:
-        if k != 'val_long':
-            cfg.task[k] = dict_cfg['task'][k]
 
     # device
     if cfg.device=='cpu':
         device = torch.device('cpu')
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
-        # device = torch.device(cfg.device)
         os.environ["CUDA_VISIBLE_DEVICES"]= cfg.device.split(":")[-1]
         device = torch.device('cuda')
         device_type = 'cuda'

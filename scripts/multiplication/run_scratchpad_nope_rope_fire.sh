@@ -16,10 +16,7 @@ d_kv=$((d_model/n_heads))
 
 # n_data=10000
 n_data=500000
-bs=200
-
-maxpos_d=64
-maxpos_o=32
+bs=250
 
 
 
@@ -29,9 +26,9 @@ python run_parallel.py \
     --use_wandb \
     --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \
     --exp_name NoPE_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
-    --seeds 0 1 \
+    --seeds 0 1 2 3 \
     --seeds_data 0 1 \
-    --devices 0 1 2 3 \
+    --devices 0 1 2 3 4 5 6 7 \
     --num_exp_per_device 1 \
     --overrides \
         project_name='ICLR2025 Focus on Less to Achieve More' \
@@ -74,7 +71,7 @@ python run_parallel.py \
         task.val_long.max_n_digits_2=$m_test \
         task.val_long.n_data=1000 \
         training.batch_size_train=$bs \
-        training.batch_size_eval=25 \
+        training.batch_size_eval=20 \
         training.n_steps=50000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd
@@ -86,15 +83,15 @@ python run_parallel.py \
     --use_wandb \
     --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \
     --exp_name RoPE_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
-    --seeds 0 1 \
+    --seeds 0 1 2 3 \
     --seeds_data 0 1 \
-    --devices 0 1 2 3 \
+    --devices 0 1 2 3 4 5 6 7 \
     --num_exp_per_device 1 \
     --overrides \
         project_name='ICLR2025 Focus on Less to Achieve More' \
         model.position_encoding_type=rotary_new \
-        ++model.rotary_dim=$d_kv \
-        ++model.rotary_base=10000 \
+        model.rotary_dim=$d_kv \
+        model.rotary_base=10000 \
         model.num_layers=$n_layers \
         model.num_heads=$n_heads \
         model.normalization_layer=rmsnorm \
@@ -133,7 +130,7 @@ python run_parallel.py \
         task.val_long.max_n_digits_2=$m_test \
         task.val_long.n_data=1000 \
         training.batch_size_train=$bs \
-        training.batch_size_eval=25 \
+        training.batch_size_eval=20 \
         training.n_steps=50000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd
@@ -145,9 +142,9 @@ python run_parallel.py \
     --use_wandb \
     --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \
     --exp_name FIRE_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
-    --seeds 0 1 \
+    --seeds 0 1 2 3 \
     --seeds_data 0 1 \
-    --devices 0 1 2 3 \
+    --devices 0 1 2 3 4 5 6 7 \
     --num_exp_per_device 1 \
     --overrides \
         project_name='ICLR2025 Focus on Less to Achieve More' \
@@ -190,7 +187,7 @@ python run_parallel.py \
         task.val_long.max_n_digits_2=$m_test \
         task.val_long.n_data=1000 \
         training.batch_size_train=$bs \
-        training.batch_size_eval=25 \
+        training.batch_size_eval=20 \
         training.n_steps=50000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd

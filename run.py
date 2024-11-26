@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 import os
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':16:8'
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
+os.environ['MKL_THREADING_LAYER'] = 'GNU'
 import torch
 import torchinfo
 from tqdm import tqdm
@@ -71,8 +72,8 @@ def run(args):
     dtype = 'float16' if not torch.cuda.is_bf16_supported() else 'bfloat16'
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
     if device_type == 'cuda':
-        ctx = torch.cuda.amp.autocast(dtype=ptdtype)
-        scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
+        ctx = torch.amp.autocast('cuda',dtype=ptdtype)
+        scaler = torch.amp.GradScaler('cuda',enabled=(dtype == 'float16'))
     else:
         ctx = nullcontext()
         scaler = None

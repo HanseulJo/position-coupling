@@ -23,14 +23,13 @@ norm_pos=pre_post
 act=gated-gelu
 
 
-## RoPE, scratchpad ##
+## RoPE, scratchpad, new ##
 python run_parallel.py \
-    --use_wandb \
     --group_name MultipleAddition_di${n_train}_${n_test}_op${m_train}_${m_test} \
-    --exp_name RoPE_noCoT_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
-    --seeds 0 1 \
+    --exp_name RoPE_noCoT_pad_revout_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
+    --seeds 0 1 2 3 \
     --seeds_data 0 1 \
-    --devices 0 1 2 3 \
+    --devices 0 1 2 3 4 5 6 7 \
     --num_exp_per_device 1 \
     --overrides \
         model.position_encoding_type=rotary_new \
@@ -85,14 +84,13 @@ python run_parallel.py \
 
 
 
-## RoPE, no scratchpad ##
+## RoPE, no scratchpad, new ##
 python run_parallel.py \
-    --use_wandb \
     --group_name MultipleAddition_di${n_train}_${n_test}_op${m_train}_${m_test} \
-    --exp_name RoPE_noCoT_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
+    --exp_name RoPE_noCoT_pad_revout_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
     --seeds 0 1 \
     --seeds_data 0 1 \
-    --devices 0 1 2 3 \
+    --devices 0 1 2 3 4 5 6 7 \
     --num_exp_per_device 1 \
     --overrides \
         model.position_encoding_type=rotary_new \
@@ -144,3 +142,65 @@ python run_parallel.py \
         training.n_steps=50000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd
+
+
+############
+### Eval ###
+############
+
+# RoPE, scratchpad, new
+python evaluate_model_parallel.py \
+    --runner_name evaluate_model_multiple_addition \
+    --group_name MultipleAdditionScratchpad_di${n_train}_${n_test}_op${m_train}_${m_test} \
+    --exp_name RoPE_pad_revout_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
+    --seeds 0 1 2 3 \
+    --seeds_data 0 1 \
+    --devices 0 1 2 3 4 5 6 7 \
+    --num_exp_per_device 1 \
+    --min_n_digits 1 \
+    --max_n_digits 30 \
+    --min_n_operands 2 \
+    --max_n_operands 30 \
+    --step_digits 1 \
+    --step_operands 1 \
+    --compile \
+    --overrides \
+        ++best=False \
+        ++model.rotary_dim=$d_kv \
+        ++model.rotary_base=10000 \
+        task=multiple_addition_scratchpad \
+        task.reverse_input=False \
+        task.reverse_output=True \
+        task.reverse_output_order=False \
+        task.padding=True \
+        task.val_long.n_data=1000 \
+        training.batch_size_eval=10
+
+
+# RoPE, no scratchpad, new
+python evaluate_model_parallel.py \
+    --runner_name evaluate_model_multiple_addition \
+    --group_name MultipleAddition_di${n_train}_${n_test}_op${m_train}_${m_test} \
+    --exp_name RoPE_noCoT_pad_revout_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
+    --seeds 0 1 2 3 \
+    --seeds_data 0 1 \
+    --devices 0 1 2 3 4 5 6 7 \
+    --num_exp_per_device 1 \
+    --min_n_digits 1 \
+    --max_n_digits 30 \
+    --min_n_operands 2 \
+    --max_n_operands 30 \
+    --step_digits 1 \
+    --step_operands 1 \
+    --compile \
+    --overrides \
+        ++best=False \
+        ++model.rotary_dim=$d_kv \
+        ++model.rotary_base=10000 \
+        task=multiple_addition \
+        task.reverse_input=False \
+        task.reverse_output=True \
+        task.reverse_output_order=False \
+        task.padding=True \
+        task.val_long.n_data=1000 \
+        training.batch_size_eval=10

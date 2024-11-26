@@ -45,7 +45,6 @@ def evaluate(args):
         device = torch.device('cpu')
         device_type = 'cpu'
     elif str(cfg.device).startswith('cuda:'):
-        # device = torch.device(cfg.device)
         os.environ["CUDA_VISIBLE_DEVICES"]= cfg.device.split(":")[-1]
         device = torch.device('cuda')
         device_type = 'cuda'
@@ -157,18 +156,6 @@ def evaluate(args):
                 loss_sum += loss * batchsize
                 logits = model_output.logits
                 pred = torch.argmax(logits, dim=-1)
-                # if batch_idx < 10 and d_positions is None:
-                #     print(phase.upper())
-                #     print("Input     :", model_inputs['input_ids'][:3].cpu().numpy() - id_0)
-                #     if 'position_ids' in model_inputs:
-                #         print("Position  :", model_inputs['position_ids'][:3].cpu().numpy())
-                #     if model_name in DECODER_BASED:
-                #         lab = model_inputs['labels'][:3, 1:]
-                #         print("Prediction:", pred[:3, :-1][lab != -100].cpu().numpy() - id_0)
-                #     else:
-                #         lab = model_inputs['labels'][:3]
-                #         print("Prediction:", pred[:3][lab != -100].cpu().numpy() - id_0)
-                #     print("Label     :", lab[lab != -100].cpu().numpy() - id_0)
                 tokenwise_correct, num_tokens = get_tokenwise_accuracy(cfg, pred, model_inputs['labels'], pad_token_id, division=False)
                 instancewise_correct, _ = get_instancewise_accuracy(cfg, pred, model_inputs['labels'], pad_token_id, division=False)
                 answerwise_correct, _ = get_answerwise_accuracy(cfg, pred, model_inputs['labels'], eos_token_id=eos_token_id, sep_token_id=sep_token_id, division=False)

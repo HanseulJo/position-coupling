@@ -32,6 +32,7 @@ from transformers.models.t5.modeling_t5 import (
     T5ForQuestionAnswering,
     T5ClassificationHead
 )
+from transformers.generation import GenerationMixin
 from transformers.utils.model_parallel_utils import get_device_map, assert_device_map
 from tokenizers import Tokenizer
 
@@ -91,7 +92,12 @@ class RMSNorm(nn.Module):
 
 
 class CustomT5Attention(T5Attention):
-    def __init__(self, config: T5Config, has_relative_attention_bias=False):
+    def __init__(
+        self,
+        config: T5Config,
+        has_relative_attention_bias=False,
+        layer_idx: Optional[int] = None,
+    ):
         super(T5Attention, self).__init__()
         self.is_decoder = config.is_decoder
         self.has_relative_attention_bias = has_relative_attention_bias
@@ -105,8 +111,15 @@ class CustomT5Attention(T5Attention):
         self.dropout = config.dropout_rate
         self.inner_dim = self.n_heads * self.key_value_proj_dim
         self.factor = config.initializer_factor
+        self.layer_idx = layer_idx
+        if layer_idx is None and self.is_decoder:
+            logger.warning_once(
+                f"Instantiating a decoder {self.__class__.__name__} without passing `layer_idx` is not recommended and "
+                "will to errors during the forward call, if caching is used. Please make sure to provide a `layer_idx` "
+                "when creating this class."
+            )
+        
         self.tempered_softmax = getattr(config, 'tempered_softmax', False)  # boolean
-
         if self.tempered_softmax:
             self.tau = torch.nn.Parameter(torch.normal(0., getattr(config, 'tempered_softmax_std', 0.02), (1,)).float())
 
@@ -192,8 +205,8 @@ class CustomT5Attention(T5Attention):
         self,
         hidden_states,
         mask=None,
-        position_bias=None,
         key_value_states=None,
+        position_bias=None,
         past_key_value=None,
         layer_head_mask=None,
         query_length=None,
@@ -577,10 +590,10 @@ class CustomT5Attention(T5Attention):
 
 
 class CustomT5LayerSelfAttention(T5LayerSelfAttention):
-    def __init__(self, config, has_relative_attention_bias=False):
+    def __init__(self, config, has_relative_attention_bias=False, layer_idx: Optional[int] = None):
         super(T5LayerSelfAttention, self).__init__()
         self.SelfAttention = CustomT5Attention(
-            config, has_relative_attention_bias=has_relative_attention_bias
+            config, has_relative_attention_bias=has_relative_attention_bias, layer_idx=layer_idx
         )
         if config.normalization_layer == 't5layernorm':
             norm = T5LayerNorm
@@ -675,14 +688,14 @@ class CustomT5LayerFF(T5LayerFF):
 
 
 class CustomT5Block(T5Block):
-    def __init__(self, config, has_relative_attention_bias=False):
+    def __init__(self, config, has_relative_attention_bias=False, layer_idx: Optional[int] = None):
         super(T5Block, self).__init__()
         self.is_decoder = config.is_decoder
         assert self.is_decoder
         self.layer = nn.ModuleList()
         self.layer.append(
             CustomT5LayerSelfAttention(
-                config, has_relative_attention_bias=has_relative_attention_bias
+                config, has_relative_attention_bias=has_relative_attention_bias, layer_idx=layer_idx
             )
         )
         self.layer.append(CustomT5LayerFF(config))
@@ -795,7 +808,7 @@ class CustomT5Stack(T5Stack):
                 CustomT5Block(config, has_relative_attention_bias=bool(i == 0) and self.position_encoding_type in [
                     POSITION_ENCODING_REL_T5_BIAS,
                     POSITION_ENCODING_REL_TRANSFORMER_XL
-                ])
+                ], layer_idx=i)
                 for i in range(config.num_layers)
             ]
         )
@@ -1223,7 +1236,7 @@ class CustomT5Stack(T5Stack):
         )
 
 
-class CustomDecoderOnlyT5(T5PreTrainedModel):
+class CustomDecoderOnlyT5(T5PreTrainedModel, GenerationMixin):
 
     _keys_to_ignore_on_load_missing = [
         r"decoder\.embed_tokens\.weight",

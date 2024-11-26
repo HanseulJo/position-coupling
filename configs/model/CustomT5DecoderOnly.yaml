@@ -22,6 +22,10 @@ num_decoder_layers: null
 num_heads: 8
 n_positions: 1024
 
+## Multi-level Position ID supports $##
+d_positions: null
+share_pe: null
+
 ## Relative Biases ##
 relative_attention_num_buckets: null
 relative_attention_max_distance: null
@@ -30,7 +34,7 @@ logarithmic_rel_bias_scale_base: null
 ## RoPE ##
 rope_theta: null
 partial_rotary_factor: null
-head_dim: null
+rope_head_dim: null
 rope_scaling:
   factor: null
   attention_factor: null

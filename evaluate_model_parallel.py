@@ -9,6 +9,7 @@ import evaluate_model_heatmap
 import time
 import os 
 os.environ['PJRT_DEVICE'] = 'GPU'
+os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

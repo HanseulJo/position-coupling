@@ -329,29 +329,6 @@ def build_alibi_tensor(
     return alibi.reshape(batch_size * num_heads, 1, seq_length).to(dtype)
 
 
-# class Fire(nn.Module):
-#     def __init__(self, d_hidden, num_heads):
-#         super().__init__()
-#         self.d_hidden = d_hidden
-#         self.num_heads = num_heads
-
-#         self.nets = nn.ModuleList([
-#             nn.Sequential(
-#                 nn.Linear(1, self.d_hidden, bias=False),
-#                 nn.ReLU(),
-#                 nn.Linear(self.d_hidden, self.d_hidden, bias=False),
-#                 nn.ReLU(),
-#                 nn.Linear(self.d_hidden, 1, bias=False)
-#             ) for _ in range(self.num_heads)
-#         ])
-
-#     def forward(self, x):
-#         x = x.unsqueeze(-1)
-#         output = torch.cat([
-#             module(x) for module in self.nets
-#         ], dim=-1)
-#         return output
-
 class FIRE(nn.Module):
     def __init__(self, num_heads, mlp_hidden, c0=0.1, L0_sqrt=16., eps=1e-6):
         super().__init__()

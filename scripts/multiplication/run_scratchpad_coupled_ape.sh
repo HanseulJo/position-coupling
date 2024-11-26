@@ -16,20 +16,23 @@ d_kv=$((d_model/n_heads))
 
 # n_data=10000
 n_data=500000
-bs=200
+bs=250
 
-maxpos_d=64
-maxpos_o=32
+maxpos_d=70
+maxpos_o=35
 
 
 ## Multiplication Coupling, scratchpad ##
+for n_heads in 8 4 2; do
+for n_layers in 6 4 2 1; do
+for wd in 0 0.001 0.003 0.01 0.03 0.1 0.3; do
+for lr in 0.00005 0.00003 0.00001 0.0001; do
 python run_parallel.py \
-    --use_wandb \
     --group_name MultiplicationScratchpad_N${n_train}_${n_test}_M${m_train}_${m_test} \
     --exp_name coupled_${n_layers}L${n_heads}H${d_model}dim_Data${n_data}BS${bs}LR${lr}WD${wd} \
-    --seeds 0 1 \
+    --seeds 0 1 2 3 \
     --seeds_data 0 1 \
-    --devices 0 1 2 3 \
+    --devices 0 1 2 3 4 5 6 7 \
     --num_exp_per_device 1 \
     --overrides \
         model.position_encoding_type=abs_learned \
@@ -42,8 +45,8 @@ python run_parallel.py \
         model.d_ff=$d_ff \
         model.d_kv=$d_kv \
         model.n_positions=$((maxpos_d+1)) \
-        ++model.d_positions=3 \
-        ++model.share_pe=False \
+        model.d_positions=3 \
+        model.share_pe=False \
         task=multiplication_scratchpad_coupled \
         task.reverse_input=False \
         task.reverse_output=True \
@@ -76,7 +79,11 @@ python run_parallel.py \
         task.val_long.max_n_digits_2=$m_test \
         task.val_long.n_data=1000 \
         training.batch_size_train=$bs \
-        training.batch_size_eval=25 \
+        training.batch_size_eval=20 \
         training.n_steps=50000 \
         training.optimizer.lr=$lr \
         training.optimizer.weight_decay=$wd
+done
+done
+done
+done
