@@ -32,6 +32,8 @@ relative_attention_max_distance: null
 logarithmic_rel_bias_scale_base: null
 
 ## RoPE ##
+rotary_dim: null
+rotary_base: null
 rope_theta: null
 partial_rotary_factor: null
 rope_head_dim: null
