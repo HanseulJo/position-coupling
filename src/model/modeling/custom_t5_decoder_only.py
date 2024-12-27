@@ -1149,7 +1149,7 @@ class CustomT5Stack(T5Stack):
 
             if self.gradient_checkpointing and self.training:
                 if use_cache:
-                    logger.warn(
+                    logger.warning_once(
                         "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
                     )
                     use_cache = False

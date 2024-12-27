@@ -12,7 +12,7 @@ Github repository for:
     title={Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure}, 
     author={Hanseul Cho and Jaeyoung Cha and Pranjal Awasthi and Srinadh Bhojanapalli and Anupam Gupta and Chulhee Yun},
     booktitle={Advances in Neural Information Processing Systems},
-    volume={38},
+    volume={37},
     year={2024}
 }
 
