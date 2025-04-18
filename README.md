@@ -1,9 +1,10 @@
 # Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure
 
 Github repository for:
-* Hanseul Cho, Jaeyoung Cha, Pranjal Awasthi, Srinadh Bhojanapalli, Anupam Gupta, and Chulhee Yun. "Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure." NeurIPS 2024. 🥳 [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
-* Hanseul Cho, Jaeyoung Cha, Srinadh Bhojanapalli, and Chulhee Yun. "Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count." arXiv preprint. [arxiv.org/abs/2410.15787](https://arxiv.org/abs/2410.15787)
+* Hanseul Cho*†, Jaeyoung Cha*†, Pranjal Awasthi‡, Srinadh Bhojanapalli‡, Anupam Gupta‡§, and Chulhee Yun†. "Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure." **NeurIPS 2024**. 🥳 [arxiv.org/abs/2405.20671](https://arxiv.org/abs/2405.20671)
+* Hanseul Cho*†, Jaeyoung Cha*†, Srinadh Bhojanapalli‡, and Chulhee Yun†. "Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count." **ICLR 2025**. 🥳 [arxiv.org/abs/2410.15787](https://arxiv.org/abs/2410.15787)
 
+(*: Equally Contributed Authors, †: KAIST AI, ‡: Google Research, §: New York University)
 
 ## Citations
 
@@ -13,14 +14,15 @@ Github repository for:
     author={Hanseul Cho and Jaeyoung Cha and Pranjal Awasthi and Srinadh Bhojanapalli and Anupam Gupta and Chulhee Yun},
     booktitle={Advances in Neural Information Processing Systems},
     volume={37},
-    year={2024}
+    year={2024},
 }
 
-@article{cho2024arithmetic,
+@inproceedings{cho2025arithmetic,
     title={Arithmetic Transformers Can Length-Generalize in Both Operand Length and Count}, 
     author={Hanseul Cho and Jaeyoung Cha and Srinadh Bhojanapalli and Chulhee Yun},
-    journal={arXiv preprint arXiv:2410.15787},
-    year={2024},
+    booktitle={International Conference on Learning Representations (ICLR)},
+    url={https://openreview.net/forum?id=eIgGesYKLG},
+    year={2025},
 }
 ```
 
